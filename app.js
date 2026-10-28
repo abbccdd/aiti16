@@ -245,9 +245,11 @@
   }
 
   function writeUrl(code) {
-    const url = new URL(window.location.href);
-    url.searchParams.set("type", code);
-    history.replaceState(null, "", url);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("type", code);
+      history.replaceState(null, "", url);
+    } catch (err) { /* file:// 或隐私模式下不能改地址栏，忽略即可 */ }
   }
 
   /* ---------- 结果卡 ---------- */
@@ -701,9 +703,14 @@
     ctx.font = `700 31px ${serif}`;
     ctx.fillText("把链接发给你的 AI，让它自己做完这 16 题", POSTER.w / 2, footY);
     const here = new URL(siteBase());
+    const isWeb = here.protocol === "http:" || here.protocol === "https:";
     ctx.fillStyle = "#74695f";
     ctx.font = `400 25px ${sans}`;
-    ctx.fillText(`${here.host}${here.pathname} · ${DATA.code}`, POSTER.w / 2, footY + 54);
+    ctx.fillText(
+      isWeb ? `${here.host}${here.pathname} · ${DATA.code}` : `${DATA.code} · 单文件离线版`,
+      POSTER.w / 2,
+      footY + 54
+    );
 
     if (y > bottom + 1 && typeof console !== "undefined") {
       console.warn(`[AITI] 长图排版溢出：内容到 ${Math.round(y)}，卡片内边界 ${bottom}`);
