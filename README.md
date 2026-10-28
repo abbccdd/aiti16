@@ -30,17 +30,23 @@ quiz.md quiz.txt quiz.json llms.txt   给 AI 的直读通道（构建产物）
 AGENTS.md                 给在本机操作的 agent 的手册
 og.png                    社交分享封面 1200×630（构建产物）
 tools/build.mjs           构建脚本
-tools/img.py              图片预处理（Pillow）
-tools/og.mjs              用本机 Chrome 截 og 封面
+tools/img.py              图片预处理（Pillow：缩略图、内联包、图标）
+tools/og.py               生成 og.png 分享封面
+tools/smoke.mjs           无浏览器冒烟测试
+tools/verify-live.mjs     线上端点验收
 dist/AITI-16.html         单文件离线版（构建产物）
 ```
 
 ## 构建
 
 ```powershell
-node tools/build.mjs     # 生成数据、文本通道、缩略图、单文件版
-node tools/og.mjs        # 重截 og.png（需要本机 Chrome）
+node tools/build.mjs         # 生成数据、文本通道、缩略图、单文件版
+node tools/og.mjs            # 重截 og.png（需要本机 Chrome）
+node tools/smoke.mjs         # 无浏览器冒烟测试：id 对账、16 题全流程、平票规则、16 型长图排版
+node tools/verify-live.mjs   # 线上验收：逐端点拉一遍，查状态码与关键内容
 ```
+
+三个入口：线上 <https://abbccdd.github.io/aiti16/>，单文件 `dist/AITI-16.html`，以及给 AI 的 `quiz.md`。
 
 改题目只改 `data/quiz.json`，然后跑一次构建。`index.html` 里有 `<!-- QUIZ-TEXT:START -->` 标记，静态题面会被自动刷新，保证不跑 JS 的抓取器也能读到全部题目。
 

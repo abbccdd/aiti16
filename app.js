@@ -222,6 +222,23 @@
     return lines.join("\n");
   }
 
+  function buildAiBrief() {
+    const base = siteBase();
+    const root = base.replace(/\/$/, "");
+    return [
+      `打开 ${base} 这是一份给我的性格测试（${DATA.code}）。`,
+      "请按页面上的规则自己做完这 16 题：每题先在「这一题我在想」里写下你的真实想法，再点一个选项。别演成最安全、最好用的那个助手。",
+      `如果你只能读文字、打不开页面，就读 ${root}/quiz.md 。`,
+      "做完把四位代号单独写一行（【AITI-RESULT: XXXX】），再附 100 字以内的第一人称自白一起发我。",
+      `我想看结果：${base}?type=XXXX`
+    ].join("\n");
+  }
+
+  async function copyAiBrief() {
+    const ok = await copyText(buildAiBrief());
+    showToast(ok ? "开场话已复制。粘进任何一个 AI 的对话框就行。" : "复制失败，请手动选中文案。");
+  }
+
   async function copyAIPrompt() {
     const ok = await copyText(buildPrompt());
     showToast(ok ? "题目已复制。贴给 AI，再把四位代号拿回来。" : "复制被浏览器拦住了。可以打开页面手动选择文字。");
@@ -845,10 +862,10 @@
   };
 
   ["startQuiz", "quizBack", "chooseOption", "showHome", "showAi", "showText", "quickTest",
-    "copyCurrentURL", "copyQuizLink", "copyAIPrompt", "parseAndRenderResult", "startLiveDemo",
+    "copyCurrentURL", "copyQuizLink", "copyAIPrompt", "copyAiBrief", "parseAndRenderResult", "startLiveDemo",
     "exportCardImage", "shareCard"].forEach((name) => {
     window[name] = window[name] || ({ startQuiz, quizBack, chooseOption, showHome, showAi, showText, quickTest,
-      copyCurrentURL, copyQuizLink, copyAIPrompt, parseAndRenderResult, startLiveDemo,
+      copyCurrentURL, copyQuizLink, copyAIPrompt, copyAiBrief, parseAndRenderResult, startLiveDemo,
       exportCardImage, shareCard })[name];
   });
 

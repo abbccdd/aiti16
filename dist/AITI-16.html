@@ -347,6 +347,7 @@
       </ol>
       <div class="stack">
         <button class="btn btn-primary" id="btn-start" onclick="startQuiz()">开始作答</button>
+        <button class="btn btn-accent" onclick="copyAiBrief()">复制给 AI 的开场话</button>
         <button class="btn btn-ghost" onclick="copyCurrentURL()">复制本页网址</button>
       </div>
       <p class="mini" style="margin:14px 0 0;">
@@ -801,6 +802,23 @@ X 依次是 S/U、G/D、F/B、A/T 里你选的那一个字母。
     });
     lines.push("现在开始作答。");
     return lines.join("\n");
+  }
+
+  function buildAiBrief() {
+    const base = siteBase();
+    const root = base.replace(/\/$/, "");
+    return [
+      `打开 ${base} 这是一份给我的性格测试（${DATA.code}）。`,
+      "请按页面上的规则自己做完这 16 题：每题先在「这一题我在想」里写下你的真实想法，再点一个选项。别演成最安全、最好用的那个助手。",
+      `如果你只能读文字、打不开页面，就读 ${root}/quiz.md 。`,
+      "做完把四位代号单独写一行（【AITI-RESULT: XXXX】），再附 100 字以内的第一人称自白一起发我。",
+      `我想看结果：${base}?type=XXXX`
+    ].join("\n");
+  }
+
+  async function copyAiBrief() {
+    const ok = await copyText(buildAiBrief());
+    showToast(ok ? "开场话已复制。粘进任何一个 AI 的对话框就行。" : "复制失败，请手动选中文案。");
   }
 
   async function copyAIPrompt() {
@@ -1426,10 +1444,10 @@ X 依次是 S/U、G/D、F/B、A/T 里你选的那一个字母。
   };
 
   ["startQuiz", "quizBack", "chooseOption", "showHome", "showAi", "showText", "quickTest",
-    "copyCurrentURL", "copyQuizLink", "copyAIPrompt", "parseAndRenderResult", "startLiveDemo",
+    "copyCurrentURL", "copyQuizLink", "copyAIPrompt", "copyAiBrief", "parseAndRenderResult", "startLiveDemo",
     "exportCardImage", "shareCard"].forEach((name) => {
     window[name] = window[name] || ({ startQuiz, quizBack, chooseOption, showHome, showAi, showText, quickTest,
-      copyCurrentURL, copyQuizLink, copyAIPrompt, parseAndRenderResult, startLiveDemo,
+      copyCurrentURL, copyQuizLink, copyAIPrompt, copyAiBrief, parseAndRenderResult, startLiveDemo,
       exportCardImage, shareCard })[name];
   });
 
