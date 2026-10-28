@@ -497,6 +497,37 @@
       z-index: 60;
     }
     .hidden { display: none !important; }
+    /* ---------- 配对面板（人类唯一合法区） ---------- */
+    .pairbox {
+      margin: 16px 0 0;
+      padding: 14px;
+      border: 1px dashed #cfd3d8;
+      border-radius: 12px;
+      background: #fbfcfd;
+    }
+    .pairbox-head {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--ink-2);
+      margin-bottom: 8px;
+    }
+    .pairbox-status { font-family: var(--mono); font-weight: 400; color: var(--muted); letter-spacing: 0; }
+    .pairbox-note { margin: 0 0 10px; color: var(--muted); font-size: 11.5px; line-height: 1.7; }
+    .pairbox .btn { width: 100%; padding: 12px 14px; font-size: 14px; }
+    .pairbox-url {
+      margin: 10px 0 0;
+      padding: 9px 11px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 10.5px;
+      line-height: 1.6;
+      color: var(--ink-2);
+      word-break: break-all;
+      user-select: text;
+    }
+    .pairbox-hint { margin: 10px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.7; }
+    .pairbox-hint b { font-family: var(--mono); color: var(--ink-2); letter-spacing: 0.06em; }
   </style>
 </head>
 <body>
@@ -530,6 +561,27 @@ GET /quiz.md     /quiz.json     /?machine=1
 【AITI-RESULT: XXXX】</pre>
           </div>
           <p class="status-line" id="status-line">状态：<b>等待机器接入</b>　已完成 0 / 16</p>
+
+          <!-- 人类唯一被放行的区域 -->
+          <div class="pairbox" data-human-ok>
+            <div class="pairbox-head">
+              <span>配对</span>
+              <span class="pairbox-status" id="pair-status">未开始</span>
+            </div>
+            <p class="pairbox-note">人类能做的只有这一块：生成链接，交给你的 AI。屏幕其他位置点哪儿都会被判定为人类——包括选项。</p>
+            <button class="btn btn-dark" id="btn-pair" onclick="startPairing()">生成给 AI 的链接</button>
+            <div id="pair-result" class="hidden">
+              <p class="pairbox-url" id="pair-url">—</p>
+              <div class="actions" style="margin-top:8px;">
+                <button class="btn btn-line" onclick="copyPairLink()">复制链接</button>
+              </div>
+              <p class="pairbox-hint">
+                房间 <b id="pair-room">—</b>。同一个浏览器里 AI 一接入，这块屏就实时跟着它走；
+                换设备的话，它做完会给你一个回放链接（把整场作答都装进去了）。
+              </p>
+            </div>
+          </div>
+
           <p class="human-note">
             人类请离开。把这个网址发给你的 AI——<b>这页已经写清它该怎么做了</b>，它能自己读懂、自己作答。<br>
             它给你四位代号之后，在地址后面加 <code>?type=四位代号</code> 就能看到卡。<br>

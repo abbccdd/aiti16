@@ -36,10 +36,14 @@ const declared = new Set([
   ...[...appjs.matchAll(/function\s+([a-zA-Z_$][\w$]*)/g)].map((m) => m[1]),
   ...[...appjs.matchAll(/const\s+([a-zA-Z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\(|function|[a-zA-Z_$])/g)].map((m) => m[1]),
 ]);
+/* 内联 onclick 调的函数必须真的挂到 window 上（光"声明过"不够，这是踩过的坑） */
+const registryBlock = (appjs.match(/\["showHome"[\s\S]*?\]\.forEach/) || [""])[0];
+const exported = new Set([...registryBlock.matchAll(/"([a-zA-Z_$][\w$]*)"/g)].map((m) => m[1]));
 for (const name of inlineCalls) {
   if (!declared.has(name)) problems.push(`index.html 调用了未定义的 ${name}()`);
+  else if (!exported.has(name)) problems.push(`${name}() 声明了但没挂到 window 上，内联 onclick 会报错`);
 }
-ok.push(`内联事件函数：${[...inlineCalls].sort().join(", ")}`);
+ok.push(`内联事件函数 ${inlineCalls.size} 个：声明且已挂 window`);
 
 /* 选项卡片上不许有任何点击处理 */
 const optMarkup = appjs.match(/<div class="opt[\s\S]{0,400}?<\/div>/);

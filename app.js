@@ -232,6 +232,9 @@
     const handler = (event) => {
       if (!detector.armed) return;
       if (event.isTrusted !== true) return;
+      // 人类合法区：只有「配对」面板里的操作放行（生成链接、复制、看二维码）
+      const target = event.target;
+      if (target && typeof target.closest === "function" && target.closest("[data-human-ok]")) return;
       if (event.type === "keydown") {
         const key = event.key || "";
         if (["Shift", "Control", "Alt", "Meta", "CapsLock", "Tab", "Escape", "F5", "F12"].includes(key)) return;
@@ -341,6 +344,13 @@
           "XXXX 依次是 边界S/U · 认知G/D · 态度F/B · 方法A/T"
         ],
         submit: "单独一行输出 【AITI-RESULT: XXXX】"
+      },
+    question_count: QUESTIONS.length,
+      pairing: {
+        answer_url: `${siteBase()}?room=房间码（人类那一页生成）`,
+        watch_url: `${siteBase()}?watch=房间码（人类在这一端实时看）`,
+        replay_note: "做完后调用 AITI.replayUrl() 拿到回放链接：整场作答编码在链接里，不需要后端。把它发给人类即可回看全过程。",
+        same_browser_note: "同一个浏览器的多个标签之间会实时同步（BroadcastChannel）；跨设备/跨 App 不共享状态，所以用回放链接。"
       },
       pacing: {
         dwell_ms: PACING.dwell,
@@ -458,7 +468,194 @@
     updateScreenStatus();
   }
 
-  /* ---------- 作答（只能由程序调用） ---------- */
+  /* ---------- 配对：房间码 / 同机实时 / 跨设备回放 ---------- */
+
+  const ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // 去掉易混的 I O 0 1
+  let room = "";
+  let roomChannel = null;
+  let watchMode = false;
+  let lastRoomPing = 0;
+  let pairLink = "";
+
+  function randomRoom(len) {
+    const n = len || 8;
+    let out = "";
+    const c = (typeof crypto !== "undefined" && crypto && typeof crypto.getRandomValues === "function") ? crypto : null;
+    if (c) {
+      const bytes = new Uint8Array(n);
+      c.getRandomValues(bytes);
+      for (const b of bytes) out += ROOM_ALPHABET[b % ROOM_ALPHABET.length];
+    } else {
+      for (let i = 0; i < n; i += 1) out += ROOM_ALPHABET[Math.floor(Math.random() * ROOM_ALPHABET.length)];
+    }
+    return out;
+  }
+
+  function roomUrl(id, mode) {
+    const base = siteBase();
+    return `${base}?${mode || "room"}=${encodeURIComponent(id)}`;
+  }
+
+  function openRoomChannel(id) {
+    closeRoomChannel();
+    if (typeof BroadcastChannel !== "function") return null;
+    try {
+      roomChannel = new BroadcastChannel(`aiti16-room-${id}`);
+      roomChannel.onmessage = (event) => onRoomMessage(event.data);
+      return roomChannel;
+    } catch (err) {
+      roomChannel = null;
+      return null;
+    }
+  }
+
+  function closeRoomChannel() {
+    if (roomChannel) {
+      try { roomChannel.close(); } catch (err) { /* ignore */ }
+      roomChannel = null;
+    }
+  }
+
+  function roomSend(payload) {
+    if (!roomChannel || !room) return;
+    try { roomChannel.postMessage({ room, ...payload }); } catch (err) { /* ignore */ }
+  }
+
+  /* ---------- 人类点击「生成链接」：这是唯一被放行的真人操作 ---------- */
+
+  function startPairing() {
+    room = randomRoom(8);
+    watchMode = true;
+    pairLink = roomUrl(room, "room");
+    const panel = document.getElementById("pair-result");
+    const urlNode = document.getElementById("pair-url");
+    if (urlNode) urlNode.textContent = pairLink;
+    if (panel) panel.classList.remove("hidden");
+    setPairStatus("等待机器接入");
+    const probe = document.getElementById("pair-room");
+    if (probe) probe.textContent = room;
+
+    openRoomChannel(room);
+    showView("home");
+    updateScreenStatus();
+
+    // 同机实时：等 AI 那条消息；超过 6 秒还没动静，提示跨设备用回放
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      if (!watchMode || room !== (probe ? probe.textContent : room)) { clearInterval(timer); return; }
+      if (Date.now() - lastRoomPing > 6000) {
+        setPairStatus("等待机器接入（跨设备请看回放链接）");
+      }
+    }, 2000);
+  }
+
+  function setPairStatus(text) {
+    const el = document.getElementById("pair-status");
+    if (el) el.textContent = text;
+  }
+
+  function copyPairLink() {
+    if (!pairLink) return;
+    copyText(pairLink).then((ok) => showToast(ok ? "链接已复制，发给你的 AI。" : "复制失败，请手动选中文案。"));
+  }
+
+  /** 观察端收到作答端的消息（同机 BroadcastChannel） */
+  function onRoomMessage(msg) {
+    if (!msg || msg.room !== room) return;
+    lastRoomPing = Date.now();
+    if (msg.type === "hello") {
+      setPairStatus(`机器已接入 · ${room}`);
+      showToast("机器已接入，屏幕会实时跟着它走。");
+      return;
+    }
+    if (msg.type === "step") {
+      const q = QUESTIONS[msg.n - 1];
+      if (!q) return;
+      if (msg.thought) thoughts[q.id] = msg.thought;
+      if (msg.phase === "picked" && msg.letter) {
+        answers[q.id] = { letter: msg.letter, weight: msg.weight || 1, index: msg.index || 1 };
+      }
+      displayCursor = msg.n - 1;
+      broadcast.item = { qIndex: msg.n - 1, mode: msg.phase === "picked" ? "picked" : "thought", id: q.id };
+      if (currentView === "home") showView("quiz");
+      renderSpectator();
+      setPairStatus(`实时同步中 · 第 ${msg.n} / ${QUESTIONS.length} 题`);
+      return;
+    }
+    if (msg.type === "done") {
+      broadcast.item = null;
+      setPairStatus(`已完成 · ${msg.code}`);
+      openResult(msg.code);
+    }
+  }
+
+  /* ---------- 跨设备：把整场作答编码进链接（无后端回放） ---------- */
+
+  function b64urlEncode(text) {
+    const bytes = new TextEncoder().encode(text);
+    let bin = "";
+    bytes.forEach((b) => { bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  function b64urlDecode(s) {
+    const bin = atob(String(s).replace(/-/g, "+").replace(/_/g, "/"));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+
+  function encodeReplay() {
+    const payload = {
+      v: 2,
+      r: room || "",
+      p: QUESTIONS.map((q) => (answers[q.id] ? answers[q.id].index : 0)).join(""),
+      t: QUESTIONS.map((q) => String(thoughts[q.id] || "").slice(0, 22))
+    };
+    return b64urlEncode(JSON.stringify(payload));
+  }
+
+  function replayUrl() {
+    return isComplete() ? `${siteBase()}?r=${encodeReplay()}` : "";
+  }
+
+  function decodeReplay(code) {
+    try {
+      const payload = JSON.parse(b64urlDecode(code));
+      if (!payload || !payload.p || payload.p.length !== QUESTIONS.length) return null;
+      return payload;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /** 回放：把解码出来的作答灌回状态，再用同一套节奏播一遍 */
+  function playReplay(code) {
+    const payload = decodeReplay(code);
+    if (!payload) return false;
+    stopBroadcast();
+    const items = [];
+    for (let i = 0; i < QUESTIONS.length; i += 1) {
+      const q = QUESTIONS[i];
+      const index = Number(payload.p[i]) || 0;
+      const opt = q.options.find((o) => o.index === index);
+      if (!opt) continue;
+      const thought = String((payload.t || [])[i] || "").trim() || "（这一题的想法没有带出来）";
+      thoughts[q.id] = thought;
+      answers[q.id] = { letter: opt.letter, weight: opt.weight, index: opt.index };
+      items.push({ qIndex: i, id: q.id, index: opt.index, letter: opt.letter, weight: opt.weight, thought, first: i === 0 });
+    }
+    if (!items.length) return false;
+    if (payload.r) { room = payload.r; watchMode = false; }
+    cursor = QUESTIONS.length - 1;
+    displayCursor = 0;
+    broadcast.queue.push(...items);
+    if (!broadcast.playing) pumpBroadcast();
+    return true;
+  }
+
+  let transcript = [];
+
 
   function startRun() {
     QUESTIONS.forEach((q) => { delete answers[q.id]; delete thoughts[q.id]; });
@@ -508,6 +705,7 @@
       broadcast.item = null;
       broadcast.timer = 0;
       if (isComplete()) {
+        roomSend({ type: "done", code: codeFromAnswers() });
         openResult(codeFromAnswers());
       } else if (countThoughts() > 0) {
         displayCursor = cursor;
@@ -527,10 +725,12 @@
     item.mode = "thought";                 // 阶段一：只有想法，先让人读完
     showView("quiz");
     renderSpectator();
+    roomSend({ type: "step", n: item.qIndex + 1, phase: "thought", thought: item.thought, index: item.index, letter: item.letter, weight: item.weight });
 
     broadcast.timer = setTimeout(() => {
       item.mode = "picked";                // 阶段二：亮出选中
       renderSpectator();
+      roomSend({ type: "step", n: item.qIndex + 1, phase: "picked", thought: item.thought, index: item.index, letter: item.letter, weight: item.weight });
       broadcast.timer = setTimeout(() => {
         broadcast.playing = false;
         pumpBroadcast();
@@ -1069,6 +1269,51 @@
     if (params.has("machine")) { showMachine(); return; }
     if (params.has("text")) { showText(); return; }
 
+    // 回放：跨设备场景下，AI 做完后给出的链接（无需后端）
+    if (params.has("r")) {
+      const okReplay = playReplay(params.get("r"));
+      detector.armed = false;   // 回放是给人看的，允许操作
+      if (!okReplay) {
+        showToast("这个回放链接坏了或不完整。");
+        showView("home");
+        updateScreenStatus();
+      }
+      return;
+    }
+
+    // 观察端：人类在自己浏览器里等 AI 接入（同浏览器多标签时实时）
+    const watchParam = params.get("watch");
+    if (watchParam) {
+      room = String(watchParam).toUpperCase().slice(0, 12);
+      watchMode = true;
+      const linkNode = document.getElementById("pair-url");
+      if (linkNode) linkNode.textContent = roomUrl(room, "room");
+      const panel = document.getElementById("pair-result");
+      if (panel) panel.classList.remove("hidden");
+      const codeNode = document.getElementById("pair-room");
+      if (codeNode) codeNode.textContent = room;
+      pairLink = roomUrl(room, "room");
+      openRoomChannel(room);
+      setPairStatus(`等待机器接入 · ${room}`);
+      showView("home");
+      updateScreenStatus();
+      return;
+    }
+
+    // 作答端：AI 打开的房间链接
+    const roomParam = params.get("room");
+    if (roomParam) {
+      room = String(roomParam).toUpperCase().slice(0, 12);
+      watchMode = false;
+      openRoomChannel(room);
+      roomSend({ type: "hello" });
+      showView("home");
+      updateScreenStatus();
+      const line = document.getElementById("status-line");
+      if (line) line.innerHTML = `状态：<b>已接入房间 ${escapeHtml(room)}</b>　已完成 0 / ${QUESTIONS.length}`;
+      return;
+    }
+
     // 有未完成/已完成的记录：说明机器刚工作过，直接给它看
     if (answeredCount() > 0) {
       if (isComplete()) { openResult(codeFromAnswers()); return; }
@@ -1181,6 +1426,12 @@
       return { code, answered: answeredCount(), playing: broadcast.playing };
     },
     code() { return isComplete() ? codeFromAnswers() : null; },
+    /** 当前房间码（给 AI 回报用） */
+    room() { return room || null; },
+    /** 跨设备用：把整场作答编码进链接（无后端回放） */
+    replayUrl,
+    /** 观察端链接（人类在这一端看） */
+    watchUrl() { return room ? roomUrl(room, "watch") : ""; },
     /** 等屏幕把队列播完（结果页也就绪了） */
     whenIdle,
     /** 当前播放节奏 */
@@ -1232,9 +1483,9 @@
   }
 
   ["showHome", "showMachine", "showText", "quickTest", "exportCardImage", "shareCard",
-    "showPoster", "backFromPoster", "copyCurrentURL"].forEach((name) => {
+    "showPoster", "backFromPoster", "copyCurrentURL", "startPairing", "copyPairLink"].forEach((name) => {
     window[name] = window[name] || ({ showHome, showMachine, showText, quickTest, exportCardImage, shareCard,
-      showPoster, backFromPoster, copyCurrentURL })[name];
+      showPoster, backFromPoster, copyCurrentURL, startPairing, copyPairLink })[name];
   });
 
   if (document.readyState === "loading") {
