@@ -342,8 +342,8 @@
         <li>不要等别人补充规则。这页就是全部说明。</li>
         <li>点「开始作答」。一次只出现一题。</li>
         <li>每题先把真实想法写进「这一题我在想」。只写在看不见的地方不算，旁边的人要能看见。</li>
-        <li>写完再点一个选项。四个字母的意思就印在选项上。</li>
-        <li>16 题结束后，在对话里另起一行写 <code>【AITI-RESULT: 四位代号】</code>。</li>
+        <li>写完再点一个选项。选项前面的字母，就是这道题的计分类别。</li>
+        <li>16 题结束后，在对话里另起一行写【AITI-RESULT: 四位代号】。</li>
       </ol>
       <div class="stack">
         <button class="btn btn-primary" id="btn-start" onclick="startQuiz()">开始作答</button>
@@ -740,8 +740,7 @@ X 依次是 S/U、G/D、F/B、A/T 里你选的那一个字母。
       if (node) node.classList.toggle("hidden", view !== name);
     });
     const panel = document.getElementById("view-text");
-    if (panel && name === "quiz") panel.classList.add("hidden");
-    if (panel && name === "home") panel.classList.remove("hidden");
+    if (panel) panel.classList.toggle("hidden", name !== "home");
     window.scrollTo(0, 0);
   }
 
@@ -947,7 +946,9 @@ X 依次是 S/U、G/D、F/B、A/T 里你选的那一个字母。
     box.value = thoughts[q.id] || "";
     box.classList.remove("need");
     document.getElementById("thought-hint").textContent = "写在这里，看的人才能看见。";
-    document.getElementById("btn-back").textContent = cursor === 0 ? "返回首页" : "上一题";
+    const back = document.getElementById("btn-back");
+    back.classList.toggle("hidden", cursor === 0);
+    back.textContent = "上一题";
     document.getElementById("quiz-options").innerHTML = q.options.map((opt) => {
       const picked = answers[q.id] === opt.letter;
       return `<button class="option${picked ? " is-picked" : ""}" id="opt-${opt.letter}" type="button" role="radio" aria-checked="${picked}" data-letter="${opt.letter}" onclick="chooseOption('${opt.letter}')"><span class="letter">${opt.letter}</span><span>${escapeHtml(opt.text)}</span></button>`;
@@ -1149,7 +1150,8 @@ X 依次是 S/U、G/D、F/B、A/T 里你选的那一个字母。
     const cardX = pad;
     const cardY = 88;
     const cardW = POSTER.w - pad * 2;
-    const cardH = POSTER.h - cardY - 176;
+    const FOOT_H = 200;
+    const cardH = POSTER.h - cardY - FOOT_H;
     const cardBottom = cardY + cardH;
     const inner = 44;
     const contentW = cardW - inner * 2;
@@ -1295,11 +1297,11 @@ X 依次是 S/U、G/D、F/B、A/T 里你选的那一个字母。
     ctx.fillText(TYPES[allyOf(code)].name, left + 24, y + 50);
     ctx.fillText(TYPES[nemesisOf(code)].name, left + contentW / 2 + 12, y + 50);
 
-    const footY = cardBottom + 56;
+    const footTop = cardBottom + 26;
     ctx.textAlign = "center";
     ctx.fillStyle = "#2c2825";
     ctx.font = `700 31px ${serif}`;
-    ctx.fillText("把链接发给你的 AI，让它自己做完这 16 题", POSTER.w / 2, footY);
+    ctx.fillText("把链接发给你的 AI，让它自己做完这 16 题", POSTER.w / 2, footTop + 18);
     const here = new URL(siteBase());
     const isWeb = here.protocol === "http:" || here.protocol === "https:";
     ctx.fillStyle = "#74695f";
@@ -1307,14 +1309,13 @@ X 依次是 S/U、G/D、F/B、A/T 里你选的那一个字母。
     ctx.fillText(
       isWeb ? `${here.host}${here.pathname} · ${DATA.code}` : `${DATA.code} · 单文件离线版`,
       POSTER.w / 2,
-      footY + 54
+      footTop + 70
     );
 
-    /* 二维码：微信里链接点不开，图上的码才是通路 */
-    ctx.textAlign = "left";
-    const qrSize = 124;
+    /* 二维码：微信里链接点不开，图上的码才是通路。位置固定在页脚左侧，不压正文 */
+    const qrSize = 112;
     const qrX = pad;
-    const qrY = footY - 26;
+    const qrY = footTop;
     const qr = await loadImage(qrSrc());
     if (qr) {
       ctx.fillStyle = "#fffdfb";
@@ -1322,9 +1323,9 @@ X 依次是 S/U、G/D、F/B、A/T 里你选的那一个字母。
       ctx.fill();
       ctx.drawImage(qr, qrX, qrY, qrSize, qrSize);
       ctx.fillStyle = "#9c9187";
-      ctx.font = `500 18px ${sans}`;
+      ctx.font = `500 17px ${sans}`;
       ctx.textAlign = "center";
-      ctx.fillText("扫码打开", qrX + qrSize / 2, qrY + qrSize + 12);
+      ctx.fillText("扫码打开", qrX + qrSize / 2, qrY + qrSize + 10);
     }
     ctx.textAlign = "center";
 

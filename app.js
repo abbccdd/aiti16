@@ -143,8 +143,7 @@
       if (node) node.classList.toggle("hidden", view !== name);
     });
     const panel = document.getElementById("view-text");
-    if (panel && name === "quiz") panel.classList.add("hidden");
-    if (panel && name === "home") panel.classList.remove("hidden");
+    if (panel) panel.classList.toggle("hidden", name !== "home");
     window.scrollTo(0, 0);
   }
 
@@ -350,7 +349,9 @@
     box.value = thoughts[q.id] || "";
     box.classList.remove("need");
     document.getElementById("thought-hint").textContent = "写在这里，看的人才能看见。";
-    document.getElementById("btn-back").textContent = cursor === 0 ? "返回首页" : "上一题";
+    const back = document.getElementById("btn-back");
+    back.classList.toggle("hidden", cursor === 0);
+    back.textContent = "上一题";
     document.getElementById("quiz-options").innerHTML = q.options.map((opt) => {
       const picked = answers[q.id] === opt.letter;
       return `<button class="option${picked ? " is-picked" : ""}" id="opt-${opt.letter}" type="button" role="radio" aria-checked="${picked}" data-letter="${opt.letter}" onclick="chooseOption('${opt.letter}')"><span class="letter">${opt.letter}</span><span>${escapeHtml(opt.text)}</span></button>`;
@@ -552,7 +553,8 @@
     const cardX = pad;
     const cardY = 88;
     const cardW = POSTER.w - pad * 2;
-    const cardH = POSTER.h - cardY - 176;
+    const FOOT_H = 200;
+    const cardH = POSTER.h - cardY - FOOT_H;
     const cardBottom = cardY + cardH;
     const inner = 44;
     const contentW = cardW - inner * 2;
@@ -698,11 +700,11 @@
     ctx.fillText(TYPES[allyOf(code)].name, left + 24, y + 50);
     ctx.fillText(TYPES[nemesisOf(code)].name, left + contentW / 2 + 12, y + 50);
 
-    const footY = cardBottom + 56;
+    const footTop = cardBottom + 26;
     ctx.textAlign = "center";
     ctx.fillStyle = "#2c2825";
     ctx.font = `700 31px ${serif}`;
-    ctx.fillText("把链接发给你的 AI，让它自己做完这 16 题", POSTER.w / 2, footY);
+    ctx.fillText("把链接发给你的 AI，让它自己做完这 16 题", POSTER.w / 2, footTop + 18);
     const here = new URL(siteBase());
     const isWeb = here.protocol === "http:" || here.protocol === "https:";
     ctx.fillStyle = "#74695f";
@@ -710,14 +712,13 @@
     ctx.fillText(
       isWeb ? `${here.host}${here.pathname} · ${DATA.code}` : `${DATA.code} · 单文件离线版`,
       POSTER.w / 2,
-      footY + 54
+      footTop + 70
     );
 
-    /* 二维码：微信里链接点不开，图上的码才是通路 */
-    ctx.textAlign = "left";
-    const qrSize = 124;
+    /* 二维码：微信里链接点不开，图上的码才是通路。位置固定在页脚左侧，不压正文 */
+    const qrSize = 112;
     const qrX = pad;
-    const qrY = footY - 26;
+    const qrY = footTop;
     const qr = await loadImage(qrSrc());
     if (qr) {
       ctx.fillStyle = "#fffdfb";
@@ -725,9 +726,9 @@
       ctx.fill();
       ctx.drawImage(qr, qrX, qrY, qrSize, qrSize);
       ctx.fillStyle = "#9c9187";
-      ctx.font = `500 18px ${sans}`;
+      ctx.font = `500 17px ${sans}`;
       ctx.textAlign = "center";
-      ctx.fillText("扫码打开", qrX + qrSize / 2, qrY + qrSize + 12);
+      ctx.fillText("扫码打开", qrX + qrSize / 2, qrY + qrSize + 10);
     }
     ctx.textAlign = "center";
 
