@@ -349,6 +349,7 @@
     box.value = thoughts[q.id] || "";
     box.classList.remove("need");
     document.getElementById("thought-hint").textContent = "写在这里，看的人才能看见。";
+    document.getElementById("quiz-legend").textContent = `${axis.left} ${axis.leftName} · ${axis.right} ${axis.rightName}`;
     const back = document.getElementById("btn-back");
     back.classList.toggle("hidden", cursor === 0);
     back.textContent = "上一题";

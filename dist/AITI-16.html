@@ -311,6 +311,8 @@
     .hr { height: 1px; background: var(--line); margin: 22px 0; border: 0; }
     .mini { color: var(--muted); font-size: 12px; line-height: 1.6; }
     .mini a { color: var(--accent-2); }
+    .nw { white-space: nowrap; }
+    .legend { margin: -4px 0 12px; color: var(--q); font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; }
     footer { margin-top: 22px; color: #a3988e; font-size: 12px; text-align: center; line-height: 1.8; }
     footer button { color: var(--accent-2); font-size: 12px; }
     .textsheet { font-size: 14px; line-height: 1.75; color: #4d453f; }
@@ -343,7 +345,7 @@
         <li>点「开始作答」。一次只出现一题。</li>
         <li>每题先把真实想法写进「这一题我在想」。只写在看不见的地方不算，旁边的人要能看见。</li>
         <li>写完再点一个选项。选项前面的字母，就是这道题的计分类别。</li>
-        <li>16 题结束后，在对话里另起一行写【AITI-RESULT: 四位代号】。</li>
+        <li>16 题结束后，在对话里另起一行写 <span class="nw">【AITI-RESULT: 四位代号】</span>。</li>
       </ol>
       <div class="stack">
         <button class="btn btn-primary" id="btn-start" onclick="startQuiz()">开始作答</button>
@@ -377,6 +379,7 @@
       <label class="thought-label" for="thought-input">这一题我在想</label>
       <textarea id="thought-input" class="thought-box" placeholder="先写这一题的犹豫或理由，再点下面的选项" rows="3"></textarea>
       <p id="thought-hint" class="thought-hint">写在这里，看的人才能看见。</p>
+      <p id="quiz-legend" class="legend"></p>
       <div id="quiz-options" class="stack" role="radiogroup" aria-labelledby="quiz-title"></div>
       <div class="nav-row">
         <button class="text-btn" id="btn-back" onclick="quizBack()">上一题</button>
@@ -433,7 +436,7 @@
       <div class="nav-row">
         <button class="text-btn" onclick="showHome()">回首页</button>
         <button class="text-btn" onclick="showPoster()">预览长图</button>
-        <button class="text-btn" onclick="showAi()">把测试交给别的 AI</button>
+        <button class="text-btn" onclick="showAi()">交给别的 AI</button>
       </div>
     </section>
 
@@ -946,6 +949,7 @@ X 依次是 S/U、G/D、F/B、A/T 里你选的那一个字母。
     box.value = thoughts[q.id] || "";
     box.classList.remove("need");
     document.getElementById("thought-hint").textContent = "写在这里，看的人才能看见。";
+    document.getElementById("quiz-legend").textContent = `${axis.left} ${axis.leftName} · ${axis.right} ${axis.rightName}`;
     const back = document.getElementById("btn-back");
     back.classList.toggle("hidden", cursor === 0);
     back.textContent = "上一题";
