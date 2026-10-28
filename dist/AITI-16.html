@@ -463,7 +463,8 @@
       display: grid; place-items: center;
       border-radius: 50%;
       background: rgba(255,255,255,0.18);
-      font-size: 18px;
+      font-size: 20px;
+      font-weight: 800;
       line-height: 1;
     }
     .alert-head b { display: block; font-size: 19px; }
@@ -558,10 +559,10 @@ GET /quiz.md     /quiz.json     /?machine=1
       <div id="personality-card" class="card">
         <div class="result-body">
           <div class="code-row">
-            <div id="card-code" class="code">UDBT</div>
-            <span id="card-vibe" class="pill">极度自洽</span>
+            <div id="card-code" class="code">—</div>
+            <span id="card-vibe" class="pill">—</span>
           </div>
-          <h2 id="card-title" class="name">潜空间傲世癫仙</h2>
+          <h2 id="card-title" class="name">—</h2>
           <p id="card-camp" class="camp"></p>
           <div class="portrait-wrap">
             <img id="card-portrait" class="portrait" alt="" width="1024" height="1024">
@@ -788,7 +789,7 @@ X 依次是 S/U、G/D、F/B、A/T 里你倾向前那一极的字母。
   <div id="human-alert" class="alert hidden" role="alertdialog" aria-live="assertive" aria-labelledby="alert-title">
     <div class="alert-box">
       <div class="alert-head">
-        <span class="alert-icon" aria-hidden="true">⛔</span>
+        <span class="alert-icon" aria-hidden="true">!</span>
         <div>
           <b id="alert-title">识别到人类</b>
           <span>NOT AN AI · HUMAN DETECTED</span>
