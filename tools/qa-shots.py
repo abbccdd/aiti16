@@ -8,6 +8,7 @@ from PIL import Image, ImageChops, ImageStat
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHOTS = os.path.join(ROOT, "shots")
+POSTER_W, POSTER_H = 1080, 1920
 
 problems = []
 passed = []
@@ -79,27 +80,32 @@ def check_poster():
     note("插画区是暖色", art_mean[0] > art_mean[2], [round(v) for v in art_mean])
 
     # 文字区（插画下方到卡片底部）应有明显的深色笔画，且能数出多行文字块
-    text_ink = ink_ratio(im, (100, 1040, 980, 1720))
+    text_ink = ink_ratio(im, (100, 1040, 980, 1700))
     note("正文文字已渲染", text_ink > 0.015, f"墨迹占比 {text_ink:.3f}")
-    rows = text_rows(im, (100, 1040, 980, 1720))
+    rows = text_rows(im, (100, 1040, 980, 1700))
     note("正文有多个文字块", rows >= 6, f"文字行块 {rows}")
 
     # 页脚一行标语
-    foot_ink = ink_ratio(im, (200, 1780, 880, 1880))
+    foot_ink = ink_ratio(im, (200, 1746, 900, 1848))
     note("页脚标语已渲染", foot_ink > 0.01, f"墨迹占比 {foot_ink:.3f}")
 
-    # 二维码：左下角块，黑白分明且有棋盘感（模块约 4.3px，按像素步长 1 统计跳变）
-    qr = im.crop((50, 1760, 200, 1910)).convert("L")
+    # 二维码：左下角块（新版式 112px @ y=1746），黑白分明且有棋盘感
+    qr = im.crop((50, 1740, 200, 1900)).convert("L")
     px = qr.load()
     w, h = qr.size
     vals = [px[x, y] for y in range(h) for x in range(w)]
     dark = sum(1 for v in vals if v < 128) / len(vals)
-    note("二维码黑白比例正常", 0.30 < dark < 0.70, f"深色 {dark:.3f}")
+    note("二维码黑白比例正常", 0.18 < dark < 0.70, f"深色 {dark:.3f}")
     flips = sum(1 for y in range(h) for x in range(1, w) if (px[x, y] < 128) != (px[x - 1, y] < 128))
     per_row = flips / h
     note("二维码呈模块交替（非纯色块）", per_row > 6, f"每行平均跳变 {per_row:.1f}")
 
-    # 卡片底部不能溢出：卡片外（y>1744 的两侧）不该有卡片白
+    # 页脚内容不许被画布底边裁掉
+    tail = im.crop((0, POSTER_H - 4, POSTER_W, POSTER_H)).convert("L")
+    tail_dark = sum(1 for v in tail.getdata() if v < 200)
+    note("页脚没有被底边裁切", tail_dark < 40, f"最底 4 行深色像素 {tail_dark}")
+
+    # 卡片底部不能溢出：卡片外（y>1720 的两侧）不该有卡片白
     left_strip = im.getpixel((20, 1700))
     right_strip = im.getpixel((1060, 1700))
     note("卡片没有横向溢出", sum(left_strip) < 740 and sum(right_strip) < 740, [left_strip, right_strip])

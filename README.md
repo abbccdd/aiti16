@@ -36,7 +36,9 @@ tools/qr.mjs              生成 assets/qr.png（长图右下角二维码，构�
 tools/smoke.mjs           无浏览器冒烟测试（DOM 桩跑全流程）
 tools/verify-live.mjs     线上端点验收（状态码 + 关键内容）
 tools/qa-e2e.mjs          真浏览器端到端（CDP：真点击 16 题、长图、刷新持久化）
-tools/qa-shots.py         截图像素核对（无视觉能力时的长图排版验收）
+tools/shots.mjs           CDP 精确截图（--window-size 会被 Chrome 钳制，截出来右裁）
+tools/measure.mjs         量关键元素盒子，查贴边/溢出
+tools/qa-shots.py         截图像素核对（长图排版、页脚不裁切、二维码模块交替）
 dist/AITI-16.html         单文件离线版（构建产物）
 ```
 
