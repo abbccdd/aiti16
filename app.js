@@ -138,7 +138,7 @@
   /* ---------- 视图 ---------- */
 
   function showView(name) {
-    ["home", "quiz", "result", "ai"].forEach((view) => {
+    ["home", "quiz", "result", "ai", "poster"].forEach((view) => {
       const node = document.getElementById(`view-${view}`);
       if (node) node.classList.toggle("hidden", view !== name);
     });
@@ -755,6 +755,34 @@
     return canvasToBlob(canvas);
   }
 
+  let posterUrl = "";
+  let rawPoster = false;
+
+  async function showPoster(codeArg) {
+    const code = String(codeArg || document.getElementById("card-code").textContent || "").trim().toUpperCase();
+    if (!TYPES[code]) return false;
+    renderCard(code, { writeUrl: false });
+    showToast("正在生成长图…");
+    const blob = await makePoster(code);
+    if (!blob) {
+      showToast("长图生成失败，可以先截图。");
+      return false;
+    }
+    if (posterUrl) URL.revokeObjectURL(posterUrl);
+    posterUrl = URL.createObjectURL(blob);
+    if (rawPoster) {
+      /* 纯长图页：手机上打开长按就能存图 */
+      document.body.innerHTML = `<img src="${posterUrl}" alt="${escapeHtml(TYPES[code].name)} 性格长图" style="display:block;width:100%;max-width:1080px;margin:0 auto;background:#fffdfb">`;
+      document.body.style.background = "#e9e3da";
+      return true;
+    }
+    document.getElementById("poster-img").src = posterUrl;
+    showView("poster");
+    return true;
+  }
+
+  function backFromPoster() { showView("result"); }
+
   async function exportCardImage() {
     const code = document.getElementById("card-code").textContent.trim();
     showToast("正在生成长图…");
@@ -807,6 +835,9 @@
       });
     }
     const params = new URLSearchParams(window.location.search);
+    rawPoster = params.has("raw");
+    const posterParam = extractCode(params.get("poster") || "");
+    if (posterParam && TYPES[posterParam]) { showPoster(posterParam); return; }
     const fromUrl = extractCode(params.get("type") || "");
     if (fromUrl && TYPES[fromUrl]) { openResult(fromUrl); return; }
     if (params.has("text")) { showText(); return; }
@@ -889,10 +920,10 @@
 
   ["startQuiz", "quizBack", "chooseOption", "showHome", "showAi", "showText", "quickTest",
     "copyCurrentURL", "copyQuizLink", "copyAIPrompt", "copyAiBrief", "parseAndRenderResult", "startLiveDemo",
-    "exportCardImage", "shareCard"].forEach((name) => {
+    "exportCardImage", "shareCard", "showPoster", "backFromPoster"].forEach((name) => {
     window[name] = window[name] || ({ startQuiz, quizBack, chooseOption, showHome, showAi, showText, quickTest,
       copyCurrentURL, copyQuizLink, copyAIPrompt, copyAiBrief, parseAndRenderResult, startLiveDemo,
-      exportCardImage, shareCard })[name];
+      exportCardImage, shareCard, showPoster, backFromPoster })[name];
   });
 
   if (document.readyState === "loading") {

@@ -435,6 +435,7 @@
       <div id="thought-log" class="card panel trail"></div>
       <div class="nav-row">
         <button class="text-btn" onclick="showHome()">回首页</button>
+        <button class="text-btn" onclick="showPoster()">预览长图</button>
         <button class="text-btn" onclick="showAi()">把测试交给别的 AI</button>
       </div>
     </section>
@@ -454,6 +455,20 @@
       </div>
       <div class="nav-row">
         <button class="text-btn" onclick="showHome()">返回首页</button>
+      </div>
+    </section>
+
+    <section id="view-poster" class="hidden">
+      <h1 style="font-size:22px;margin-bottom:6px;">分享长图</h1>
+      <p class="mini" style="margin:0 0 14px;">1080×1920，右下角带二维码。发朋友圈、小红书、X 都够用。</p>
+      <img id="poster-img" alt="性格卡长图" style="width:100%;border-radius:18px;box-shadow:0 16px 40px rgba(78,52,32,0.16);display:block;background:#fffdfb;">
+      <div class="actions">
+        <button class="btn btn-primary" onclick="exportCardImage()">保存长图</button>
+        <button class="btn btn-ghost" onclick="shareCard()">分享</button>
+      </div>
+      <div class="nav-row">
+        <button class="text-btn" onclick="backFromPoster()">返回结果卡</button>
+        <button class="text-btn" onclick="showHome()">回首页</button>
       </div>
     </section>
 
