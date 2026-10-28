@@ -27,7 +27,8 @@ async function main() {
   note("首页体积合理 (>8KB)", home.buf.length > 8000, `${(home.buf.length / 1024).toFixed(1)} KB`);
   note("标题正确", home.text.includes("测测你的 AI 是什么性格"));
   note("静态题面在 HTML 里（抓取器可读）", home.text.includes('id="quiz-text-body"'));
-  note("16 道题全在静态题面里", [...Array(16)].every((_, i) => home.text.includes(`\n${i + 1}. [`)));
+  note("16 道题全在静态题面里", [...Array(16)].every((_, i) => home.text.includes(`\n${i + 1}. `)));
+  note("静态题面每题四个选项", (home.text.match(/^ {3}A\. /gm) || []).length === 16);
   note("OG 封面指向绝对地址", /property="og:image" content="https:\/\/[^"]+og\.png"/.test(home.text));
   note("无外部 CDN 引用", !/fonts\.googleapis|jsdelivr|unpkg/.test(home.text));
   note("首页有「复制给 AI 的开场话」", home.text.includes("复制给 AI 的开场话"));
