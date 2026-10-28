@@ -4,9 +4,19 @@
 
 设计前提是**无门槛传播**：一个链接、任何设备、任何 AI，都能自己把题做完。
 
+- **答题界面**：白底、一屏一题、四个选项（A/B/C/D），点选后立刻高亮、0.6 秒自动跳下一题
+- **AI 的思考过程**：答题页底部固定一个可滚动窗口，每题写一句想法再选，看的人能看见它在犹豫什么
 - 没有后端，没有登录，没有 Cookie 之外的记录（进度只存 `localStorage`）
 - 不请求任何境外资源：没有 Google Fonts，没有 CDN，导出长图是手写 canvas
 - 断网可用：`dist/AITI-16.html` 是单文件离线版，图片内联，双击就开
+
+## 题目结构
+
+每题 4 个选项：两个极各有一条「强」、一条「弱」，交错排列（偶数题左极在前，奇数题右极在后）。
+
+- **代号**只看字母：每维 4 题，票多者胜；2:2 时以该维最后一题为准
+- **强/弱（weight 2/1）**只影响结果卡的条形图比例，不改变代号
+- `data/quiz.json` 是唯一数据源，改完跑一次构建即可
 
 ## 三个入口
 
@@ -20,9 +30,9 @@
 ## 目录
 
 ```
-index.html                页面（无外部依赖）
-app.js                    引擎：答题、计分、canvas 长图、window.AITI
-data/quiz.json            唯一数据源：维度 / 16 题 / 16 型
+index.html                页面（无外部依赖，白底单栏）
+app.js                    引擎：答题、计分、思考窗口、canvas 长图、window.AITI
+data/quiz.json            唯一数据源：维度 / 16 题（每题 4 选项）/ 16 型
 data/quiz-data.js         构建产物，浏览器引用的那份
 assets/<代号>.jpg         16 张 1024² 插画（原图）
 assets/thumb/<代号>.jpg   构建产物，240² 列表缩略图
@@ -35,30 +45,33 @@ tools/og.py               生成 og.png 分享封面
 tools/qr.mjs              生成 assets/qr.png（长图右下角二维码，构建时联网一次）
 tools/smoke.mjs           无浏览器冒烟测试（DOM 桩跑全流程）
 tools/verify-live.mjs     线上端点验收（状态码 + 关键内容）
-tools/qa-e2e.mjs          真浏览器端到端（CDP：真点击 16 题、长图、刷新持久化）
-tools/shots.mjs           CDP 精确截图（--window-size 会被 Chrome 钳制，截出来右裁）
+tools/qa-e2e.mjs          真浏览器端到端（CDP：真点击 16 题、点选态、长图、刷新持久化）
+tools/shots.mjs           CDP 精确截图（带状态探针 + 缓存穿透）
+tools/inspect.mjs         读某个元素的计算样式与盒子（排查版面问题用）
 tools/measure.mjs         量关键元素盒子，查贴边/溢出
-tools/qa-shots.py         截图像素核对（长图排版、页脚不裁切、二维码模块交替）
+tools/qa-shots.py         截图像素核对（长图排版、页脚不裁切、二维码、点选差异）
 dist/AITI-16.html         单文件离线版（构建产物）
 ```
 
-## 构建
+## 构建与验收
 
 ```powershell
 node tools/build.mjs         # 生成数据、文本通道、缩略图、单文件版
 node tools/og.py             # 重新生成 og.png（纯 Pillow，不需要浏览器）
 node tools/qr.mjs            # 重新生成二维码（换域名后必跑）
-node tools/smoke.mjs         # 无浏览器冒烟：id 对账、16 题流程、平票规则、16 型长图排版
-node tools/verify-live.mjs   # 线上端点验收（32 项）
-node tools/qa-e2e.mjs        # 真浏览器端到端（22 项），也接受 file:// 单文件版地址
+node tools/smoke.mjs         # 无浏览器冒烟：id 对账、四选项、平票规则、加权条形、16 型长图
+node tools/verify-live.mjs   # 线上端点验收（33 项）
+node tools/qa-e2e.mjs        # 真浏览器端到端（33 项），也接受 file:// 单文件版地址
+node tools/shots.mjs         # 截图到 shots/，打印每张的状态探针
+python tools/qa-shots.py     # 截图像素核对（19 项）
 ```
 
 已跑过的验收记录：
 
-- 线上 `https://abbccdd.github.io/aiti16/`：`verify-live` 32 项通过；`qa-e2e` 22 项通过（真点击走完 16 题、长图 1080×1920 / 1209 KB）。
-- 离线 `dist/AITI-16.html`：`qa-e2e` 22 项通过（`file://` 下长图同样能导出，1057 KB）。
-
-三个入口：线上 <https://abbccdd.github.io/aiti16/>，单文件 `dist/AITI-16.html`，以及给 AI 的 `quiz.md`。
+- 线上 `https://abbccdd.github.io/aiti16/`：`verify-live` 33 项、`qa-e2e` 33 项、`qa-shots` 19 项全通过
+  （真点 16 题、点选态 + 自动跳题、思考窗口 16 条、长图 1080×1920、刷新持久化、深链出卡）
+- 离线 `dist/AITI-16.html`：`qa-e2e` 33 项通过（`file://` 下长图同样能导出）
+- 示范作答（`?demo=1`）：自动打字写想法、答完 16 题、落到结果页
 
 改题目只改 `data/quiz.json`，然后跑一次构建。`index.html` 里有 `<!-- QUIZ-TEXT:START -->` 标记，静态题面会被自动刷新，保证不跑 JS 的抓取器也能读到全部题目。
 
@@ -91,5 +104,6 @@ $env:AITI_SITE = "https://你的域名"; node tools/build.mjs
 ## 版本
 
 - 代号四位固定顺序：边界 S/U · 认知 G/D · 态度 F/B · 方法 A/T
+- 每题 4 个选项（两极各一强一弱，交错），代号只看字母票，weight 只影响条形比例
 - 计分：每维 4 题，票多者胜，2:2 以该维最后一题为准
 - `?type=` 是稳定分享入口，不要改语义
