@@ -25,7 +25,7 @@ async function main() {
   note("首页 200", home.res.status === 200, home.res.status);
   note("首页是 HTML", (home.res.headers.get("content-type") || "").includes("text/html"), home.res.headers.get("content-type"));
   note("首页体积合理 (>8KB)", home.buf.length > 8000, `${(home.buf.length / 1024).toFixed(1)} KB`);
-  note("标题正确", home.text.includes("测测你的 AI 是什么性格"));
+  note("标题正确", home.text.includes("这台机器只考 AI"));
   note("静态题面在 HTML 里（抓取器可读）", home.text.includes('id="quiz-text-body"'));
   note("16 道题全在静态题面里", [...Array(16)].every((_, i) => home.text.includes(`\n${i + 1}. `)));
   note("静态题面每题四个选项", (home.text.match(/^ {3}A\. /gm) || []).length === 16);
@@ -37,7 +37,9 @@ async function main() {
   note("首页说明了真实点击会被判定为人类", home.text.includes("任何一次真实点击都会被判定为人类"));
   note("红框文案在页面里", home.text.includes("识别到人类") && home.text.includes("未通过 AI 检测"));
   note("机器接口印在屏上", home.text.includes("window.AITI.pick"));
-  note("首页机器屏没有任何 button", !/<section id="view-home"[\s\S]*?<button/i.test(home.text));
+  const homeSection = (home.text.match(/<section id="view-home"[\s\S]*?<\/section>/) || [""])[0];
+  note("首页机器屏没有任何 button", homeSection.length > 500 && !/<button/i.test(homeSection), `${homeSection.length} 字符`);
+  note("首页机器屏没有输入框", !/<input|<textarea/i.test(homeSection));
 
   // AI 直读通道
   const md = await grab("/quiz.md");

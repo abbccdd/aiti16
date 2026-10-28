@@ -206,6 +206,23 @@ async function main() {
   const advanced = await evaluate(`({ count: document.getElementById('quiz-count').textContent, picked: document.querySelectorAll('#quiz-options .opt.is-picked').length })`);
   note("约 0.45s 后自动翻到下一题", advanced.count.startsWith("02") && advanced.picked === 0, `${advanced.count} 选中 ${advanced.picked}`);
 
+  /* ---------- 4b. 真实点击「选项卡片」本身：只弹红框，绝不算作答 ---------- */
+  const optBox = await evaluate(`(() => {
+    const el = document.querySelector('#quiz-options .opt');
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), answered: AITI.state().answered };
+  })()`);
+  await trustedClick(optBox.x, optBox.y);
+  const onOption = await evaluate(`({
+    alertVisible: !document.getElementById('human-alert').classList.contains('hidden'),
+    answered: AITI.state().answered,
+    picked: document.querySelectorAll('#quiz-options .opt.is-picked').length,
+    caught: AITI.detector().caught
+  })`);
+  note("真实点击选项卡片 → 弹红框", onOption.alertVisible);
+  note("真实点击选项卡片没有被算成选中", onOption.answered === optBox.answered && onOption.picked === 0, `作答 ${onOption.answered} / 选中 ${onOption.picked}`);
+  await sleep(3400);
+
   /* ---------- 5. 未信任的合成点击也不作答（isTrusted=false） ---------- */
   const synth = await evaluate(`(() => {
     const cards = document.querySelectorAll('#quiz-options .opt');
@@ -217,7 +234,7 @@ async function main() {
     };
   })()`);
   note("合成点击不改变作答", synth.answered === 1, synth.answered);
-  note("合成点击不弹人类红框", !synth.alertVisible && synth.caught === caughtBeforePick, `caught ${synth.caught}`);
+  note("合成点击不弹人类红框", !synth.alertVisible && synth.caught === onOption.caught, `${onOption.caught} → ${synth.caught}`);
 
   /* ---------- 6. 答完 16 题 ---------- */
   const run = await evaluate(`(async () => {
