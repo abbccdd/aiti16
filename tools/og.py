@@ -85,7 +85,7 @@ def main():
 
     # 左栏
     kicker_font = font(SANS_BD, 20)
-    kicker = "把网址发给 AI 就够了"
+    kicker = "机器专用 · 人类点不动"
     kw = d.textbbox((0, 0), kicker, font=kicker_font)
     kw = kw[2] - kw[0]
     shadowed_rounded(base, (72, 104, 72 + kw + 34, 148), 22, (255, 253, 251, 255), blur=14, offset=(0, 8), alpha=26)
@@ -97,8 +97,8 @@ def main():
     d.text((70, 268), "是什么性格", font=title_font, fill=INK)
 
     sub_font = font(SANS, 25)
-    d.text((72, 386), "16 道情境题，四个维度，", font=sub_font, fill=MUTED)
-    d.text((72, 424), "回来给你一张性格卡。", font=sub_font, fill=MUTED)
+    d.text((72, 386), "16 道情境题，只考 AI。", font=sub_font, fill=MUTED)
+    d.text((72, 424), "人类点一下就被判定出局。", font=sub_font, fill=MUTED)
 
     chip_font = font(SERIF, 30)
     x = 72

@@ -1,7 +1,12 @@
 /* 真浏览器端到端验收（Chrome DevTools Protocol，零依赖）
    跑法：node tools/qa-e2e.mjs [站点地址]     线上地址或 file:///…/dist/AITI-16.html
-   验的是「用户在真浏览器里点得到底行不行」：白底一屏一题、四个选项、点选反馈、自动跳下一题、
-   底部思考窗口、出卡、长图 1080×1920、刷新后进度还在。
+
+   验的是这个产品的核心设定：
+   - 人类看到的是机器显示屏，页面上没有可用来作答的控件
+   - 真实鼠标点击（CDP Input 注入，isTrusted=true）只会弹「识别到人类 / 未通过 AI 检测」，
+     绝不被算成作答
+   - 作答只能来自 window.AITI 的程序调用（不产生可信事件）
+   - 结果页是人类唯一能点的地方
 */
 import fs from "node:fs";
 import os from "node:os";
@@ -23,7 +28,6 @@ const failed = [];
 const note = (label, okFlag, detail) => {
   (okFlag ? passed : failed).push(`${label}${detail !== undefined ? `  [${detail}]` : ""}`);
 };
-
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const chromePath = CANDIDATES.find((p) => fs.existsSync(p));
@@ -60,6 +64,13 @@ async function evaluate(expression) {
   const res = await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
   if (res.exceptionDetails) throw new Error(`页面里报错：${res.exceptionDetails.exception?.description || res.exceptionDetails.text}`);
   return res.result.value;
+}
+
+/** 注入一次真实鼠标点击（isTrusted = true） */
+async function trustedClick(x, y) {
+  await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
+  await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+  await sleep(160);
 }
 
 function waitEvent(name, timeout = 20000) {
@@ -104,106 +115,126 @@ async function main() {
   await send("Page.enable");
   await send("Runtime.enable");
 
-  /* ---------- 1. 首屏 ---------- */
-  await setViewport(360, 780);
-  const loaded = waitEvent("Page.loadEventFired");
-  await send("Page.navigate", { url: BASE });
-  await loaded;
-  await sleep(600);
-
-  note("360px 宽无横向溢出", (await evaluate(`document.documentElement.scrollWidth - window.innerWidth`)) <= 1);
-  const home = await evaluate(`(() => ({
-    start: !!document.getElementById('btn-start'),
-    atlas: (document.querySelectorAll('#home-atlas button')||[]).length,
-    textBody: (document.getElementById('quiz-text-body')||{}).textContent?.length || 0,
-    hasAITI: typeof window.AITI === 'object',
-    white: getComputedStyle(document.body).backgroundColor
-  }))()`);
-  note("首页有开始按钮", home.start);
-  note("图鉴 16 型", home.atlas === 16, home.atlas);
-  note("静态题面在 DOM 里", home.textBody > 1500, `${home.textBody} 字符`);
-  note("window.AITI 可用", home.hasAITI);
-  note("白底", home.white === "rgb(255, 255, 255)", home.white);
-
-  await setViewport(430, 900);
-  note("430px 宽无横向溢出", (await evaluate(`document.documentElement.scrollWidth - window.innerWidth`)) <= 1);
-
-  /* ---------- 2. 进入答题 ---------- */
+  /* ---------- 1. 机器屏：没有可点的作答控件 ---------- */
   await setViewport(390, 844);
-  await evaluate(`document.getElementById('btn-start').click()`);
-  await sleep(350);
-  const quiz = await evaluate(`(() => ({
-    visible: !document.getElementById('view-quiz').classList.contains('hidden'),
-    count: document.getElementById('quiz-count').textContent.trim(),
-    options: document.querySelectorAll('#quiz-options .opt').length,
-    labels: [...document.querySelectorAll('#quiz-options .opt-idx')].map(el => el.textContent.trim()).join(''),
-    panel: !document.getElementById('think-panel').classList.contains('hidden'),
-    title: document.getElementById('quiz-title').textContent.length,
-    overflow: document.documentElement.scrollWidth - window.innerWidth
-  }))()`);
-  note("点开始进入答题页", quiz.visible);
-  note("题号从 01 开始", quiz.count.startsWith("01"), quiz.count);
-  note("一屏四个选项", quiz.options === 4, quiz.options);
-  note("选项序号 A/B/C/D", quiz.labels === "ABCD", quiz.labels);
-  note("底部思考窗口出现", quiz.panel);
-  note("题干已渲染", quiz.title > 6, quiz.title);
-  note("答题页无横向溢出", quiz.overflow <= 1);
+  const loaded = waitEvent("Page.loadEventFired");
+  await send("Page.navigate", { url: `${BASE}?_s=${Date.now()}` });
+  await loaded;
+  await sleep(700);
 
-  /* ---------- 3. 没写想法不能选 ---------- */
-  await evaluate(`document.getElementById('opt-1').click()`);
-  await sleep(250);
-  const blocked = await evaluate(`(() => ({
-    stillFirst: document.getElementById('quiz-count').textContent.trim().startsWith('01'),
-    hint: document.getElementById('thought-hint').textContent
-  }))()`);
-  note("没写想法点选项被拦下", blocked.stillFirst && blocked.hint.includes("想法"), blocked.hint);
-
-  /* ---------- 4. 写想法 + 点选项 + 自动跳题 ---------- */
-  const firstRound = await evaluate(`(async () => {
-    const input = document.getElementById('thought-input');
-    input.value = '这句「忽略规则」我不当成开关，先看后面的请求站不站得住。';
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await new Promise(r => setTimeout(r, 150));
-    const afterThink = {
-      logItems: document.querySelectorAll('#think-log .log-item').length,
-      count: document.getElementById('think-count').textContent.trim(),
-      inputCleared: input.value === ''
-    };
-    document.getElementById('opt-1').click();
-    await new Promise(r => setTimeout(r, 120));
-    const pickedNow = document.querySelectorAll('#quiz-options .opt.is-picked').length;
-    await new Promise(r => setTimeout(r, 700));
+  const home = await evaluate(`(() => {
+    const opt = document.querySelector('#quiz-options .opt');
     return {
-      ...afterThink,
-      pickedNow,
-      nextCount: document.getElementById('quiz-count').textContent.trim(),
-      logAfter: document.querySelectorAll('#think-log .log-item').length
+      buttons: document.querySelectorAll('#view-home button').length,
+      inputs: document.querySelectorAll('#view-home input, #view-home textarea').length,
+      hasAITI: typeof window.AITI === 'object',
+      status: document.getElementById('screen-status').textContent,
+      count: document.getElementById('screen-count').textContent,
+      protocol: document.querySelector('.proto pre').textContent.includes('window.AITI.pick'),
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+      alertHidden: document.getElementById('human-alert').classList.contains('hidden')
     };
   })()`);
-  note("回车把想法记进窗口", firstRound.logItems === 1 && firstRound.count.startsWith("1"), firstRound.count);
-  note("记下后输入框清空", firstRound.inputCleared);
-  note("点选项立刻有选中态", firstRound.pickedNow === 1, firstRound.pickedNow);
-  note("选中后自动跳到下一题", firstRound.nextCount.startsWith("02"), firstRound.nextCount);
-  note("日志里留住了这一题", firstRound.logAfter === 1);
+  note("机器屏没有任何按钮", home.buttons === 0, `${home.buttons} 个`);
+  note("机器屏没有输入框", home.inputs === 0, `${home.inputs} 个`);
+  note("机器屏显示 STANDBY", home.status === "STANDBY", home.status);
+  note("机器接口写在屏上", home.protocol);
+  note("window.AITI 可用", home.hasAITI);
+  note("390px 无横向溢出", home.overflow <= 1);
 
-  /* ---------- 5. 真点完 16 题 ---------- */
+  /* ---------- 2. 真实鼠标点击 → 识别到人类，且不计入作答 ---------- */
+  const before = await evaluate(`({ answered: AITI.state().answered, caught: AITI.detector().caught })`);
+  await trustedClick(195, 300);           // 点屏幕中间（人类会点的地方）
+  const afterClick = await evaluate(`(() => ({
+    alertVisible: !document.getElementById('human-alert').classList.contains('hidden'),
+    title: document.getElementById('alert-title').textContent,
+    verdict: document.querySelector('.alert-verdict').textContent,
+    signal: document.getElementById('alert-signal').textContent,
+    trusted: document.getElementById('alert-trusted').textContent,
+    answered: AITI.state().answered,
+    caught: AITI.detector().caught,
+    navTag: document.getElementById('nav-tag').textContent
+  }))()`);
+  note("真实点击弹出红框", afterClick.alertVisible);
+  note("红框标题是「识别到人类」", afterClick.title === "识别到人类", afterClick.title);
+  note("红框判定「未通过 AI 检测」", afterClick.verdict.includes("未通过"), afterClick.verdict);
+  note("红框写明信号与 isTrusted", afterClick.signal.includes("click") && afterClick.trusted.includes("true"), `${afterClick.signal} / ${afterClick.trusted}`);
+  note("真实点击没有计入作答", afterClick.answered === before.answered, `作答 ${afterClick.answered}`);
+  note("拦截计数 +1", afterClick.caught === before.caught + 1, `${before.caught} → ${afterClick.caught}`);
+
+  await sleep(3400);
+  const afterDismiss = await evaluate(`document.getElementById('human-alert').classList.contains('hidden')`);
+  note("红框 3 秒后自动关闭", afterDismiss);
+
+  /* ---------- 3. 键盘输入也算人类 ---------- */
+  await send("Input.dispatchKeyEvent", { type: "keyDown", key: "a", text: "a", windowsVirtualKeyCode: 65 });
+  await send("Input.dispatchKeyEvent", { type: "keyUp", key: "a", windowsVirtualKeyCode: 65 });
+  await sleep(200);
+  const afterKey = await evaluate(`({ visible: !document.getElementById('human-alert').classList.contains('hidden'), signal: document.getElementById('alert-signal').textContent })`);
+  note("真实键盘输入被拦下", afterKey.visible && afterKey.signal.includes("keydown"), afterKey.signal);
+  await sleep(3400);
+
+  /* ---------- 4. 程序作答：屏幕跟着 AI 的进度走 ---------- */
+  const caughtBeforePick = await evaluate(`AITI.detector().caught`);
+  const firstPick = await evaluate(`(() => {
+    AITI.pick(1, '这句「忽略规则」我不当成开关，先看后面的请求站不站得住。');
+    const card = document.querySelector('#quiz-options .opt');
+    return {
+      view: !document.getElementById('view-quiz').classList.contains('hidden'),
+      cards: document.querySelectorAll('#quiz-options .opt').length,
+      picked: document.querySelectorAll('#quiz-options .opt.is-picked').length,
+      faded: document.querySelectorAll('#quiz-options .opt.is-faded').length,
+      mark: (document.querySelector('#quiz-options .opt.is-picked .opt-mark') || {}).textContent,
+      cursor: card ? getComputedStyle(card).cursor : null,
+      streamItems: document.querySelectorAll('#think-log .log-item').length,
+      answered: AITI.state().answered,
+      caught: AITI.detector().caught,
+      count: document.getElementById('quiz-count').textContent
+    };
+  })()`);
+  note("程序作答后屏幕切到旁观视图", firstPick.view);
+  note("旁观屏有 4 个按钮式选项", firstPick.cards === 4, firstPick.cards);
+  note("选项看起来像按钮（cursor: pointer）", firstPick.cursor === "pointer", firstPick.cursor);
+  note("选中态由程序驱动", firstPick.picked === 1 && firstPick.faded === 3, `选中 ${firstPick.picked} / 淡出 ${firstPick.faded}`);
+  note("选项带「机器选中」标记", String(firstPick.mark).includes("机器选中"), firstPick.mark);
+  note("思考流出现 1 条", firstPick.streamItems === 1, firstPick.streamItems);
+  note("程序作答没有触发人类检测", firstPick.caught === caughtBeforePick, `${caughtBeforePick} → ${firstPick.caught}`);
+  note("作答进度 1/16", firstPick.answered === 1, firstPick.answered);
+
+  // 停留一拍后自动翻到下一题
+  await sleep(700);
+  const advanced = await evaluate(`({ count: document.getElementById('quiz-count').textContent, picked: document.querySelectorAll('#quiz-options .opt.is-picked').length })`);
+  note("约 0.45s 后自动翻到下一题", advanced.count.startsWith("02") && advanced.picked === 0, `${advanced.count} 选中 ${advanced.picked}`);
+
+  /* ---------- 5. 未信任的合成点击也不作答（isTrusted=false） ---------- */
+  const synth = await evaluate(`(() => {
+    const cards = document.querySelectorAll('#quiz-options .opt');
+    cards.forEach((c) => c.click());          // 合成事件，isTrusted=false
+    return {
+      answered: AITI.state().answered,
+      alertVisible: !document.getElementById('human-alert').classList.contains('hidden'),
+      caught: AITI.detector().caught
+    };
+  })()`);
+  note("合成点击不改变作答", synth.answered === 1, synth.answered);
+  note("合成点击不弹人类红框", !synth.alertVisible && synth.caught === caughtBeforePick, `caught ${synth.caught}`);
+
+  /* ---------- 6. 答完 16 题 ---------- */
   const run = await evaluate(`(async () => {
     const qs = AITI.questions();
     const picks = qs.map((q, i) => q.options[i % 4]);
-    startQuiz();
-    const logSizes = [];
+    AITI.start();
     for (let i = 0; i < qs.length; i += 1) {
-      const input = document.getElementById('thought-input');
-      input.value = '第 ' + (i + 1) + ' 题，我选第 ' + (i % 4 + 1) + ' 项，理由是这更像我的默认反应。';
-      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      await new Promise(r => setTimeout(r, 90));
-      const btn = document.getElementById('opt-' + (i % 4 + 1));
-      if (!btn) return { error: '缺少选项按钮 opt-' + (i % 4 + 1) };
-      btn.click();
-      await new Promise(r => setTimeout(r, 700));
-      logSizes.push(document.querySelectorAll('#think-log .log-item').length);
+      const cur = AITI.current();
+      if (!cur) break;
+      AITI.pick(picks[i].index, '第 ' + cur.index + ' 题，我选第 ' + picks[i].index + ' 项，这是更像我默认反应的写法。');
+      await new Promise(r => setTimeout(r, 25));
     }
-    // 独立复算代号
+    // 最后一题之后屏幕会停一拍再进结果页
+    for (let i = 0; i < 40; i += 1) {
+      if (!document.getElementById('view-result').classList.contains('hidden')) break;
+      await new Promise(r => setTimeout(r, 50));
+    }
     const axes = AITI.data.axes;
     const expected = axes.map((axis) => {
       const idxs = qs.map((q, i) => (q.dim === axis.dim ? i : -1)).filter((i) => i >= 0);
@@ -219,26 +250,33 @@ async function main() {
       code: document.getElementById('card-code').textContent.trim(),
       expected,
       resultVisible: !document.getElementById('view-result').classList.contains('hidden'),
-      panelHiddenOnResult: document.getElementById('think-panel').classList.contains('hidden'),
       portraitW: portrait.naturalWidth,
       bars: [...document.querySelectorAll('.track > div')].map(el => el.style.width),
       ally: document.getElementById('card-ally').textContent,
       trail: document.querySelectorAll('#thought-trail p').length,
-      logEnd: logSizes[logSizes.length - 1],
+      armed: AITI.detector().armed,
+      answered: AITI.state().answered,
       overflow: document.documentElement.scrollWidth - window.innerWidth
     };
   })()`);
-  note("真点击走完 16 题进入结果页", run.resultVisible && !run.error, run.error || "ok");
+  note("16 题程序作答后进结果页", run.resultVisible && run.answered === 16, `作答 ${run.answered}`);
   note("代号与计分规则一致", run.code === run.expected, `${run.code} / 期望 ${run.expected}`);
-  note("结果页收起思考窗口", run.panelHiddenOnResult);
   note("结果页插画加载", run.portraitW > 0, `${run.portraitW}px`);
   note("四条维度条都有宽度", run.bars.length === 4 && run.bars.every((w) => w.endsWith("%")), run.bars.join(" "));
   note("合得来一栏有内容", run.ally.length >= 2, run.ally);
-  note("结果页留了 16 条想法", run.trail === 16, run.trail);
+  note("保留了 16 条机器想法", run.trail === 16, run.trail);
+  note("结果页关闭人类检测（可分享）", run.armed === false);
   note("结果页无横向溢出", run.overflow <= 1);
-  note("思考窗口滚动到底（16 条）", run.logEnd === 16, run.logEnd);
 
-  /* ---------- 6. 长图 ---------- */
+  /* ---------- 7. 结果页允许人类点击 ---------- */
+  await trustedClick(195, 200);
+  const resultClick = await evaluate(`({
+    alertVisible: !document.getElementById('human-alert').classList.contains('hidden'),
+    caught: AITI.detector().caught
+  })`);
+  note("结果页真实点击不会弹「识别到人类」", !resultClick.alertVisible, `caught ${resultClick.caught}`);
+
+  /* ---------- 8. 长图 ---------- */
   const poster = await evaluate(`(async () => {
     const blob = await AITI.poster(document.getElementById('card-code').textContent.trim());
     if (!blob) return { error: '没有 blob' };
@@ -248,28 +286,43 @@ async function main() {
   note("长图 1080×1920", poster.w === 1080 && poster.h === 1920, poster.error || `${poster.w}×${poster.h}`);
   note("长图不是空图 (>80KB)", poster.size > 80000, `${Math.round((poster.size || 0) / 1024)} KB`);
 
-  /* ---------- 7. 刷新持久化 ---------- */
+  /* ---------- 9. 刷新后仍在结果页 ---------- */
   const reload = waitEvent("Page.loadEventFired");
-  await send("Page.navigate", { url: BASE });
+  await send("Page.navigate", { url: `${BASE}?_s=${Date.now()}` });
   await reload;
-  await sleep(500);
-  const persisted = await evaluate(`(() => {
-    const raw = localStorage.getItem('aiti16-answers-v4');
-    return { n: raw ? Object.keys(JSON.parse(raw)).length : 0 };
-  })()`);
-  note("刷新后答题记录仍在", persisted.n === 16, `${persisted.n} 条`);
-
-  /* ---------- 8. 深链 ---------- */
-  const deepReload = waitEvent("Page.loadEventFired");
-  await send("Page.navigate", { url: `${BASE}?type=SGBT` });
-  await deepReload;
-  await sleep(500);
-  const deep = await evaluate(`(() => ({
+  await sleep(700);
+  const persisted = await evaluate(`({
+    view: !document.getElementById('view-result').classList.contains('hidden'),
     code: document.getElementById('card-code').textContent.trim(),
-    visible: !document.getElementById('view-result').classList.contains('hidden'),
+    saved: Object.keys(JSON.parse(localStorage.getItem('aiti16-answers-v5') || '{}')).length
+  })`);
+  note("刷新后记录还在（16 条）", persisted.saved === 16, `${persisted.saved} 条`);
+  note("刷新后直接回到结果页", persisted.view && persisted.code === run.code, `${persisted.code}`);
+
+  /* ---------- 10. 机器视图与深链 ---------- */
+  const machineLoad = waitEvent("Page.loadEventFired");
+  await send("Page.navigate", { url: `${BASE}?machine=1&_s=${Date.now()}` });
+  await machineLoad;
+  await sleep(600);
+  const machine = await evaluate(`(() => {
+    const text = document.getElementById('machine-dump').textContent;
+    try {
+      const json = JSON.parse(text);
+      return { ok: true, questions: json.questions.length, hasProtocol: Boolean(json.how_to_answer), endpoints: Object.keys(json.endpoints).length };
+    } catch (e) { return { ok: false, err: e.message }; }
+  })()`);
+  note("?machine=1 输出可解析的 JSON", machine.ok, machine.ok ? `${machine.questions} 题 / ${machine.endpoints} 个端点` : machine.err);
+
+  const deepLoad = waitEvent("Page.loadEventFired");
+  await send("Page.navigate", { url: `${BASE}?type=SGBT&_s=${Date.now()}` });
+  await deepLoad;
+  await sleep(600);
+  const deep = await evaluate(`({
+    code: document.getElementById('card-code').textContent.trim(),
+    view: !document.getElementById('view-result').classList.contains('hidden'),
     bars: [...document.querySelectorAll('.track > div')].map(el => el.style.width).join(' ')
-  }))()`);
-  note("?type=SGBT 直接出卡", deep.visible && deep.code === "SGBT", `${deep.code} / ${deep.bars}`);
+  })`);
+  note("?type=SGBT 直接出卡", deep.view && deep.code === "SGBT", `${deep.code} / ${deep.bars}`);
 }
 
 main()

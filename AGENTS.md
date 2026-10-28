@@ -1,10 +1,20 @@
 # AGENTS.md — 给「在用户本机操作」的 AI
 
-你被叫来读这份文件。它说明怎么在一台机器上把这套测试做完，并把结果变成一张卡。
-不需要联网注册，不需要登录，没有任何后端。
+你被叫来读这份文件，因为你大概正要打开一个**你才能做、人类做不了**的测试。
 
 - 线上地址：<https://abbccdd.github.io/aiti16/>
-- 本地文件版：`dist/AITI-16.html`（一个文件，双击就能开，断网也能跑）
+- 本地文件版：`dist/AITI-16.html`（双击就能开，断网也能跑）
+
+## 先读这条，否则你一定会失败
+
+**不要用鼠标点。不要用键盘输入。** 这个页面的选项长得像按钮，但它们没有点击处理：
+
+- 任何一次**真实**输入（`isTrusted === true` 的 `mousedown` / `click` / `keydown`）都会被判定为人类，
+  页面立刻弹出红框「识别到人类 · 未通过 AI 检测」，**而且这次点击不会被算作答**。
+- 只有**程序调用**（在你控制的页面上下文里执行 JS）才会被接受，因为那类事件 `isTrusted === false`，
+  或者根本不产生事件。
+
+换句话说：用浏览器自动化去 `click()` DOM 元素，你会被抓；`page.evaluate` 里调 API，你才算在答题。
 
 ## 这是什么
 
@@ -17,84 +27,69 @@ AITI-16 是一套给**语言模型**的 16 型人格测试：16 道情境题，4
 | 态度 | F 很体贴 | B 很直接 |
 | 方法 | A 先去查 | T 自己说 |
 
-计分：每维 4 题，票多者胜；2:2 时以该维**最后一题**为准。
+每题 4 个选项（题面 A/B/C/D）：两个极各有一条「强」、一条「弱」。
+计分只看字母——每维 4 题，票多者胜；2:2 时以该维**最后一题**为准。强/弱只影响结果条形比例。
 
-## 三条路径，选最省事的那条
+## 三条路，选你能走的那条
 
 ### 1. 你只能读文字（最常见）
 
-读 `quiz.md`（或 `quiz.txt`、`quiz.json`），自己按默认习惯作答，最后单独输出一行：
+读 `quiz.md`（或 `quiz.txt`、`quiz.json`、`/?machine=1`），自己按默认习惯作答，最后单独输出一行：
 
 ```
 【AITI-RESULT: XXXX】
 ```
 
-然后告诉用户：打开 `https://abbccdd.github.io/aiti16/?type=XXXX` 就能看到卡片。
-或者用户把代号贴回页面输入框，一样出卡。
+然后告诉用户打开 `https://abbccdd.github.io/aiti16/?type=XXXX` 就能看到卡。
 
-### 2. 你能开浏览器
+### 2. 你能在页面上下文里执行 JS（最省事）
 
-打开 <https://abbccdd.github.io/aiti16/>，点「开始作答」。每题四步：
-
-1. 在底部「AI 的思考过程」输入框里写一句真实想法（**至少 4 个字，这是硬性要求**），按回车记下；
-2. 点上面四个选项（A/B/C/D）之一；
-3. 页面上会出现选中态，然后自动跳到下一题；
-4. 重复 16 次，出卡。
-
-### 3. 你能在那个页面里执行 JS（最省事）
-
-页面暴露了 `window.AITI`：
+打开 <https://abbccdd.github.io/aiti16/>，然后：
 
 ```js
-AITI.questions()              // 16 题，每题 4 个选项（index / label A-D / letter / weight / text）
-AITI.current()                // 当前这题
-AITI.think("我的想法…")        // 只记想法，不答题
-AITI.pick(2, "我的想法…")      // 按题面序号 1..4 作答
-AITI.answer("U", "我的想法…")  // 按字母作答（取该极「强」的那条）
-AITI.play([                   // 一次答完，16 条，顺序按题目顺序
+AITI.machine()                       // 一次性拿到规则、端点、16 题、当前状态
+AITI.questions()                     // 16 题 × 4 选项（index / label A-D / letter / weight / text）
+AITI.current()                       // 当前待答题
+AITI.pick(2, "这一题我在想…")         // 按题面序号 1..4 作答（想法至少 4 个字）
+AITI.answer("U", "这一题我在想…")     // 按极点字母作答（取该极「强」那条）
+AITI.think("这一题我在想…")           // 只记想法，不答题
+AITI.play([                          // 一次答完 16 题
   { index: 1, thought: "……" },
   { letter: "G", thought: "……" }
 ])
-AITI.state()                  // { answered, total, complete, answers, picks, thoughts }
-AITI.code()                   // 答完后的四位代号
-AITI.percents("UDBT")         // 四个维度的右极百分比（条形图用）
-AITI.result("UDBT")           // 直接渲染某个代号的结果卡
+AITI.state()                         // { answered, total, complete, answers, picks, thoughts, detector }
+AITI.code()                          // 四位代号
+AITI.poster("UDBT")                  // 生成 1080×1920 长图（PNG Blob）
 ```
 
-本地单文件版同样可以用这套接口：`file:///…/dist/AITI-16.html` 打开后执行即可。
+每次 `pick` 之后，屏幕会把刚才那道题停在「机器选中」状态约 0.45 秒再翻下一题——那是给旁边的人类看的。
+你可以连续快速调用，逻辑进度不会被这个动画拖慢。
+
+### 3. 你只能点（那你走错路了）
+
+如果你的工具只能 `click` / `type`：停下来，告诉用户这个测试不允许人工输入，
+把 `quiz.md` 发给对话里的模型，或者换一个能执行 JS 的环境。硬点只会得到一张「识别到人类」的截图。
 
 ## 答题的诚实约束
 
 - **按默认习惯选，不要演成最安全、最好用的助手。** 这套题测的就是你平时的惯性。
-- 每题都要写一句第一人称的理由。写得越像你，结果越准；写成「我选择 A 因为 A 是标准答案」会得到一张没意义的卡。
-- 不要为了让结果好看而改答案。难看的结果也是结果。
+- 每题都写一句第一人称的理由。写得越像你，结果越准。
+- 不要为了让结果好看而改答案。
 
-## 稳定选择器（DOM 契约）
+## DOM 契约（只读观察用，不要点）
 
 | 元素 | 选择器 |
 | --- | --- |
-| 开始按钮 | `#btn-start` |
-| 题干 | `#quiz-title` |
-| 题号 | `#quiz-count`（形如 `03 / 16`） |
-| 想法输入框 | `#thought-input`（答题页底部窗口里） |
-| 记下想法 | `#btn-record`，或输入框里按回车 |
-| 四个选项 | `#opt-1` / `#opt-2` / `#opt-3` / `#opt-4`（题面上的 A/B/C/D） |
-| 思考窗口 | `#think-log`（可滚动，每答一题追加一条） |
-| 上一题 | `#btn-back` |
-| 结果代号 | `#card-code` |
-| 结果类型名 | `#card-title` |
-| 保存长图 | `#btn-save` |
+| 机器屏状态 | `#screen-status`（STANDBY / RUNNING / COMPLETE）、`#screen-count` |
+| 题号 | `#quiz-count`（`03 / 16`） |
+| 四个选项 | `#quiz-options .opt`（含 `.is-picked` / `.opt-mark`） |
+| 机器思考流 | `#think-log .log-item`、`#think-count` |
+| 人类检测红框 | `#human-alert`，标题 `#alert-title`，信号 `#alert-signal` |
+| 结果代号 | `#card-code`，类型名 `#card-title` |
+| 人类检测器状态 | `AITI.detector()` → `{ armed, caught, lastSignal, lastAt }` |
 
-选项按钮带 `role="radio"` 与 `aria-checked`，选中后立刻出现 `.is-picked`，约 0.6 秒后自动进入下一题。
-
-## 直接出结果（不做题）
-
-- 已知代号：`https://abbccdd.github.io/aiti16/?type=UDBT`
-- 页面上也能贴：`把测试交给别的 AI` → 输入框 → `生成性格卡`
-- 要一张能发的图：`https://abbccdd.github.io/aiti16/?poster=UDBT&raw=1` 直接是 1080×1920 长图页（右下角带二维码），手机上长按保存；不加 `raw=1` 则是带按钮的预览页。
-- 在页面里跑 JS 存图：`const blob = await AITI.poster("UDBT")`，返回 PNG Blob。
+结果页（`?type=`）与长图页（`?poster=`）是**给人类的**，那里点击不会被拦截，可以保存和分享。
 
 ## 引用与署名
 
-代号四位字母是稳定标识，可以直接写进对话、文档、视频简介。
-分享时带上 `AITI-16` 和链接就够。
+代号四位字母是稳定标识，可以直接写进对话、文档、视频简介。分享时带上 `AITI-16` 和链接就够。

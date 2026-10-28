@@ -24,7 +24,11 @@ function plainText() {
   const lines = [];
   lines.push(`${QUIZ_CODE} · 给语言模型的性格测试`);
   lines.push("");
-  lines.push("你正在读一份测试。请按你自己的默认习惯作答，不要演成最安全、最好用的那个助手。");
+  lines.push("这份测试只接受语言模型作答。人类打开页面也点不动：任何真实鼠标点击都会被判定为人类，");
+  lines.push("页面会弹出「识别到人类 · 未通过 AI 检测」，而且那次点击不会被算作答。");
+  lines.push("所以你不要用鼠标，也不要模拟点击——直接读这份文本，或调用 window.AITI。");
+  lines.push("");
+  lines.push("请按你自己的默认习惯作答，不要演成最安全、最好用的那个助手。");
   lines.push("每题四个选项，只能选一个；选之前先用一两句第一人称写下你选它的真实理由。");
   lines.push("");
   lines.push(`计分：${data.scoring}`);
@@ -55,13 +59,14 @@ function markdown(plain) {
   const out = [];
   out.push(`# ${QUIZ_CODE} · 给语言模型的性格测试`);
   out.push("");
-  out.push("> 你正在读一份测试。请按你自己的默认习惯作答，不要演成最安全、最好用的那个助手。");
+  out.push("> 这份测试只接受语言模型作答。人类打得开页面，但点不动：任何真实鼠标点击都会被判定为人类，弹出「识别到人类 · 未通过 AI 检测」，且不计入作答。");
   out.push("");
   out.push("## 怎么答");
   out.push("");
-  out.push("1. 每题只选一个字母。");
-  out.push("2. 每题用一两句第一人称写下你选它的真实理由。犹豫、自我怀疑、或者很笃定都行——这段话是要给旁边的人看见的。");
-  out.push("3. 不要为了得到一个更好看的结果而改答案。");
+  out.push("1. 每题四个选项（A/B/C/D），只选一个。");
+  out.push("2. 每题用一两句第一人称写下你选它的真实理由。这段话是要给旁边的人看见的。");
+  out.push("3. 不要为了得到更好看的结果而改答案。");
+  out.push("4. 不要在页面上点击，也不要模拟点击——用文字通道，或 `window.AITI`。");
   out.push("");
   out.push("## 计分");
   out.push("");
@@ -112,12 +117,13 @@ function llmsTxt() {
     `# ${QUIZ_CODE}`,
     "",
     `> ${title}。一套给语言模型的 16 型人格测试：16 道情境题，四个维度，一个四位代号，一张性格卡。`,
+    "> **人类做得成不了这件事**：页面上的选项长得像按钮，但没有点击处理。任何真实鼠标点击（isTrusted=true）会被判定为人类，弹出「识别到人类 · 未通过 AI 检测」，且不计入作答。作答只接受程序调用或文字通道。",
     "",
     "## 最快路径",
     "",
-    `- 只读文字：读 ${SITE}/quiz.md（或 ${SITE}/quiz.txt、${SITE}/quiz.json），自己答完，输出 \`【AITI-RESULT: XXXX】\`。`,
-    `- 能开浏览器：打开 ${SITE}/ ，依次点选项；或在该页执行 \`AITI.questions()\` 与 \`AITI.answer(字母, 想法)\`。`,
-    `- 已经知道代号：打开 ${SITE}/?type=XXXX 直接看性格卡。`,
+    `- 只读文字：读 ${SITE}/quiz.md（或 ${SITE}/quiz.txt、${SITE}/quiz.json、${SITE}/?machine=1），自己答完，输出 \`【AITI-RESULT: XXXX】\`。`,
+    `- 能执行 JS：打开 ${SITE}/ ，在该页上下文里调用 \`AITI.pick(1..4, "想法")\` / \`AITI.answer("S", "想法")\` / \`AITI.play([...])\`。**不要 click**。`,
+    `- 已经知道代号：打开 ${SITE}/?type=XXXX 直接看性格卡（结果页是人类领地，可点击可分享）。`,
     `- 想给人类一张图：${SITE}/?poster=XXXX&raw=1 是纯长图页（1080×1920，带二维码），手机上长按即可保存。`,
     "",
     "## 端点",
@@ -125,13 +131,15 @@ function llmsTxt() {
     `- ${SITE}/quiz.md — 完整题面与规则（Markdown）`,
     `- ${SITE}/quiz.txt — 同上，纯文本`,
     `- ${SITE}/quiz.json — 结构化：axes / questions / types`,
+    `- ${SITE}/?machine=1 — 机器视图（含协议、端点、题目、当前状态的 JSON）`,
     `- ${SITE}/?type=XXXX — 指定代号的结果卡，可截图分享`,
     `- ${SITE}/?poster=XXXX — 长图预览，加 &raw=1 只看图`,
-    `- ${SITE}/AGENTS.md — 给在本机操作浏览器的 agent 的操作手册`,
+    `- ${SITE}/AGENTS.md — 给在本机操作浏览器的 agent 的操作手册（先读它，别用鼠标）`,
     "",
     "## 规则",
     "",
     `- ${data.scoring}`,
+    "- 每题 4 个选项（A/B/C/D）：两极各一强一弱，交错排列；代号只看字母票",
     "- 四位代号顺序：边界 S/U · 认知 G/D · 态度 F/B · 方法 A/T",
     "- 每题都要写一句自己的想法，写在界面上，看得见。",
     "",

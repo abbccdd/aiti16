@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>测测你的 AI 是什么性格 · AITI-16</title>
-  <meta name="description" content="16 道情境题，测出你的 AI 是哪一型。把链接发给你的 AI，它自己做完，回来给你一张性格卡。">
+  <title>AITI-16 · 这台机器只考 AI</title>
+  <meta name="description" content="一套只接受语言模型作答的 16 型人格测试。人类能打开这个页面，但点不动它——任何真实点击都会被判定为人类并中止检测。">
   <meta name="keywords" content="AI性格测试,AI人格,MBTI,语言模型,大模型性格,AITI-16">
   <meta name="theme-color" content="#ffffff">
   <meta name="color-scheme" content="light">
@@ -14,16 +14,16 @@
   <link rel="manifest" href="manifest.webmanifest">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AITI-16">
-  <meta property="og:title" content="测测你的 AI 是什么性格">
-  <meta property="og:description" content="把网址发给你的 AI，让它做完这 16 道题。回来你会拿到一张性格卡：它是逻辑执剑人，还是潜空间傲世癫仙。">
+  <meta property="og:title" content="这台机器只考 AI">
+  <meta property="og:description" content="AITI-16：给语言模型的 16 型人格测试。人类打得开，但点不动——真实点击会被判定为人类，检测立即中止。">
   <meta property="og:url" content="https://abbccdd.github.io/aiti16/">
   <meta property="og:image" content="https://abbccdd.github.io/aiti16/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:locale" content="zh_CN">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="测测你的 AI 是什么性格">
-  <meta name="twitter:description" content="16 道情境题，测出你的 AI 是哪一型。把链接丢给它就行。">
+  <meta name="twitter:title" content="这台机器只考 AI">
+  <meta name="twitter:description" content="人类打得开，但点不动。任何真实点击都会被判定为人类。">
   <meta name="twitter:image" content="https://abbccdd.github.io/aiti16/og.png">
   <style>
     :root {
@@ -31,15 +31,16 @@
       --ink: #111113;
       --ink-2: #3a3a3f;
       --muted: #8a8a8e;
+      --faint: #b8b8bd;
       --line: #ebebee;
       --line-2: #f2f2f4;
       --fill: #f6f6f8;
-      --accent: #111113;
       --tint: #f1f6f2;
       --ok: #2f7a52;
+      --red: #d93025;
       --sans: "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans SC", system-ui, -apple-system, "Segoe UI", sans-serif;
       --serif: "Songti SC", "Source Han Serif SC", "Noto Serif SC", "SimSun", Georgia, serif;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html { -webkit-text-size-adjust: 100%; }
@@ -50,14 +51,14 @@
       background: var(--bg);
       font-family: var(--sans);
       -webkit-font-smoothing: antialiased;
+      user-select: none;
     }
+    #view-result, #view-poster, #view-machine, #view-text { user-select: text; }
     button, input, textarea { font-family: inherit; }
     button { cursor: pointer; }
     img { max-width: 100%; height: auto; }
     .shell { width: min(480px, 100%); margin: 0 auto; min-height: 100vh; padding: 56px 20px 40px; display: flex; flex-direction: column; }
-    .shell.in-quiz { padding-bottom: 320px; }
     .view { display: flex; flex-direction: column; }
-    #view-home { flex: 1; justify-content: safe center; }
     @media (min-width: 560px) {
       body { background: #f4f4f6; }
       .shell { background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 20px 60px rgba(0,0,0,0.06); }
@@ -72,81 +73,122 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      gap: 8px;
       background: rgba(255,255,255,0.94);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--line);
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.04em;
       z-index: 30;
     }
-    h1, h2, h3 { margin: 0; }
-    .eyebrow { margin: 0 0 14px; color: var(--muted); font-size: 12.5px; letter-spacing: 0.08em; }
-    h1 { font-size: 27px; line-height: 1.42; font-weight: 700; letter-spacing: -0.01em; }
-    .sub { margin: 14px 0 26px; color: var(--ink-2); font-size: 14.5px; line-height: 1.75; }
-    .cta { display: flex; flex-direction: column; gap: 10px; }
-    .btn {
-      border: 0;
-      border-radius: 12px;
-      padding: 15px 18px;
-      font-size: 15.5px;
-      font-weight: 600;
-      transition: transform .12s ease, background .18s ease, border-color .18s ease;
+    .nav-tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 2px 5px;
     }
-    .btn:active { transform: scale(0.99); }
-    .btn-dark { background: var(--accent); color: #fff; }
-    .btn-dark:hover { background: #000; }
-    .btn-line { background: #fff; color: var(--ink); border: 1px solid var(--line); }
-    .btn-line:hover { border-color: #d8d8dc; background: #fcfcfd; }
-    .hint-row { margin: 16px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.75; }
-    .hint-row a { color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; }
-    details { border-top: 1px solid var(--line); margin-top: 28px; padding-top: 2px; }
-    summary {
-      padding: 14px 0;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--ink);
-      cursor: pointer;
-      list-style: none;
+    .nav-tag.hot { color: var(--red); border-color: var(--red); }
+    h1, h2, h3 { margin: 0; }
+    /* ---------- 显示屏 ---------- */
+    #view-home { flex: 1; justify-content: safe center; }
+    .screen { border: 1px solid var(--ink); border-radius: 14px; overflow: hidden; background: #fff; }
+    .screen-bar {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 8px;
+      padding: 9px 13px;
+      background: var(--ink);
+      color: #fff;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
     }
-    summary::-webkit-details-marker { display: none; }
-    summary::after { content: "＋"; color: var(--muted); font-weight: 400; }
-    details[open] summary::after { content: "－"; }
-    .atlas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding-bottom: 10px; }
-    .atlas button { padding: 0; border: 0; background: transparent; text-align: center; }
-    .atlas img {
-      width: 100%;
-      aspect-ratio: 1;
-      object-fit: cover;
-      border-radius: 12px;
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #f6c667;
+      box-shadow: 0 0 0 3px rgba(246,198,103,0.18);
+      animation: blink 1.6s ease-in-out infinite;
+    }
+    .dot.live { background: #6ee7a8; box-shadow: 0 0 0 3px rgba(110,231,168,0.2); }
+    @keyframes blink { 50% { opacity: .35; } }
+    .screen-bar .grow { flex: 1; }
+    .screen-bar b { font-weight: 600; }
+    .screen-body { padding: 20px 18px 22px; }
+    .eyebrow { margin: 0 0 12px; color: var(--muted); font-size: 11px; letter-spacing: 0.1em; font-family: var(--mono); }
+    h1 { font-size: 27px; line-height: 1.35; font-weight: 700; letter-spacing: -0.01em; }
+    .sub { margin: 12px 0 18px; color: var(--ink-2); font-size: 14px; line-height: 1.75; }
+    .sub em { font-style: normal; color: var(--red); font-weight: 600; }
+    .proto { border-top: 1px dashed var(--line); padding-top: 14px; }
+    .proto-title {
+      margin: 0 0 8px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .proto pre {
+      margin: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fcfcfd;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.85;
+      color: var(--ink-2);
+      white-space: pre-wrap;
+      word-break: break-word;
+      user-select: text;
+    }
+    .proto pre .c { color: var(--faint); }
+    .status-line {
+      margin: 16px 0 0;
+      padding: 11px 12px;
+      border-radius: 10px;
       background: var(--fill);
-      display: block;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      line-height: 1.7;
+      color: var(--ink-2);
     }
-    .atlas small { display: block; margin-top: 5px; color: var(--muted); font-size: 10.5px; line-height: 1.3; }
-    /* ---------- 答题 ---------- */
+    .status-line b { color: var(--ink); }
+    .human-note {
+      margin: 16px 0 0;
+      padding-top: 14px;
+      border-top: 1px dashed var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.85;
+    }
+    .human-note code {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--ink-2);
+      background: var(--fill);
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+    .tiny { margin: 12px 0 0; text-align: center; color: var(--faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; }
+    .tiny b { color: var(--red); }
+    /* ---------- 旁观答题 ---------- */
     .progress { height: 3px; border-radius: 99px; background: var(--line-2); overflow: hidden; }
     .progress > div { height: 100%; width: 0; background: var(--ink); transition: width .3s ease; }
     .q-head { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 0; }
     .q-count { font-family: var(--mono); font-size: 13px; color: var(--muted); letter-spacing: 0.06em; }
-    .chip {
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: var(--fill);
-      color: var(--ink-2);
-      font-size: 11.5px;
-      font-weight: 600;
-    }
+    .chip { padding: 4px 10px; border-radius: 999px; background: var(--fill); color: var(--ink-2); font-size: 11.5px; font-weight: 600; }
     .q-title { margin: 16px 0 6px; font-size: 21px; line-height: 1.55; font-weight: 700; }
-    .q-prompt { margin: 0 0 22px; color: var(--muted); font-size: 14px; }
+    .q-prompt { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
     .opts { display: flex; flex-direction: column; gap: 10px; }
     .opt {
       display: flex;
       align-items: flex-start;
       gap: 12px;
-      width: 100%;
       padding: 15px 16px;
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -154,109 +196,61 @@
       color: var(--ink);
       font-size: 14.5px;
       line-height: 1.62;
-      text-align: left;
-      transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+      /* 长成这样就是为了让人想点：样式是按钮，行为只属于机器 */
+      cursor: pointer;
+      transition: border-color .16s ease, background .16s ease, box-shadow .16s ease, transform .12s ease;
     }
     .opt:hover { border-color: #c9c9cf; background: #fcfcfd; }
+    .opt:active { transform: scale(0.995); }
+    .opt.is-picked:hover { border-color: var(--ink); background: #fbfbfc; }
+    .opt.is-faded:hover { border-color: var(--line); background: #fff; }
     .opt-idx {
-      flex: 0 0 24px;
-      width: 24px;
-      height: 24px;
-      margin-top: 1px;
+      flex: 0 0 24px; width: 24px; height: 24px; margin-top: 1px;
       border-radius: 50%;
-      display: grid;
-      place-items: center;
-      background: var(--fill);
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      transition: background .16s ease, color .16s ease;
+      display: grid; place-items: center;
+      background: var(--fill); color: var(--muted);
+      font-size: 12px; font-weight: 700;
     }
     .opt-text { flex: 1; }
-    .opt-check { flex: 0 0 14px; color: var(--ok); font-weight: 700; opacity: 0; transition: opacity .16s ease; }
-    .opt.is-picked { border-color: var(--ink); background: #fbfbfc; box-shadow: inset 0 0 0 1px var(--ink); }
+    .opt-mark { flex: 0 0 auto; align-self: center; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: var(--faint); }
+    .opt.is-picked { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); background: #fbfbfc; }
     .opt.is-picked .opt-idx { background: var(--ink); color: #fff; }
-    .opt.is-picked .opt-check { opacity: 1; }
-    .opt.is-faded { opacity: .42; }
-    .q-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; }
-    .link { border: 0; background: transparent; color: var(--muted); font-size: 13.5px; padding: 8px 0; }
-    .link:hover { color: var(--ink); }
-    /* ---------- 底部思考窗口 ---------- */
-    .think-panel {
-      position: fixed;
-      left: 50%;
-      bottom: 0;
-      transform: translateX(-50%);
-      width: min(480px, 100%);
-      background: #fff;
-      border-top: 1px solid var(--line);
-      box-shadow: 0 -8px 24px rgba(0,0,0,0.04);
-      z-index: 25;
-      padding: 0 20px calc(12px + env(safe-area-inset-bottom));
+    .opt.is-picked .opt-mark { color: var(--ok); }
+    .opt.is-faded { opacity: .45; }
+    .ro-note {
+      margin: 18px 0 0;
+      padding-top: 12px;
+      border-top: 1px dashed var(--line);
+      text-align: center;
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 0.06em;
     }
-    .think-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 11px 0 8px;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      color: var(--ink-2);
+    .stream { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 12px; }
+    .stream-head {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-2);
+      margin-bottom: 8px;
     }
-    .think-count { font-family: var(--mono); font-weight: 400; color: var(--muted); }
-    .think-log {
-      max-height: 134px;
-      min-height: 58px;
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      border-top: 1px solid var(--line-2);
-      padding-top: 9px;
-    }
+    .stream-head .meta { font-family: var(--mono); font-weight: 400; color: var(--muted); }
+    .think-log { max-height: 148px; overflow-y: auto; overscroll-behavior: contain; }
     .log-empty { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 0; }
     .log-item { margin-bottom: 10px; }
-    .log-meta { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+    .log-meta { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-bottom: 2px; }
     .log-meta b { color: var(--ink-2); font-weight: 600; }
     .log-meta em { font-style: normal; color: var(--ok); }
-    .log-text { font-size: 13px; line-height: 1.62; color: var(--ink-2); }
-    .log-item.is-now .log-text { color: var(--ink); }
-    .composer { display: flex; gap: 8px; margin-top: 10px; }
-    .composer input {
-      flex: 1;
-      min-width: 0;
-      padding: 11px 13px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      font-size: 14px;
-      color: var(--ink);
-      background: #fff;
-    }
-    .composer input::placeholder { color: #b4b4b9; }
-    .composer input:focus { outline: none; border-color: #b9b9c0; }
-    .composer input.need { border-color: #d4564e; box-shadow: 0 0 0 3px #fdeceb; }
-    .composer-btn {
-      flex: 0 0 auto;
-      padding: 0 16px;
-      border: 0;
-      border-radius: 10px;
-      background: var(--fill);
-      color: var(--ink-2);
-      font-size: 13.5px;
-      font-weight: 600;
-    }
-    .composer-btn:hover { background: #ededf0; }
-    .composer-hint { margin: 7px 0 0; min-height: 1.1em; color: var(--muted); font-size: 11.5px; }
-    .composer-hint.warn { color: #c0504a; }
+    .log-text { font-size: 12.5px; line-height: 1.62; color: var(--ink-2); }
     /* ---------- 结果卡 ---------- */
     .card { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #fff; }
-    .portrait-wrap { margin: 14px 0 16px; text-align: center; }
-    .portrait { display: block; margin: 0 auto; width: min(256px, 64%); aspect-ratio: 1; object-fit: cover; border-radius: 14px; background: var(--fill); }
-    .result-body { padding: 16px 16px 18px; }
+    .result-body { padding: 16px; }
     .code-row { display: flex; align-items: center; gap: 8px; }
     .code { font-family: var(--serif); font-size: 26px; letter-spacing: 0.06em; font-weight: 700; }
     .pill { padding: 3px 9px; border-radius: 999px; background: var(--tint); color: var(--ok); font-size: 11.5px; font-weight: 600; }
     .name { margin: 6px 0 0; font-size: 21px; font-weight: 700; }
     .camp { margin: 3px 0 14px; color: var(--muted); font-size: 12.5px; }
+    .portrait-wrap { margin: 0 0 16px; text-align: center; }
+    .portrait { display: block; margin: 0 auto; width: min(256px, 64%); aspect-ratio: 1; object-fit: cover; border-radius: 14px; background: var(--fill); }
     .desc { margin: 0 0 16px; color: var(--ink-2); font-size: 14px; line-height: 1.75; }
     .axis { margin-bottom: 11px; }
     .axis-labels { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-bottom: 5px; }
@@ -268,37 +262,128 @@
     .pair div { padding: 11px 12px; border-radius: 10px; background: var(--fill); font-size: 11.5px; }
     .pair span { display: block; color: var(--muted); margin-bottom: 3px; }
     .pair strong { font-size: 13px; }
-    .watermark { display: flex; justify-content: space-between; margin-top: 14px; color: #b8b8bd; font-size: 10.5px; }
+    .watermark { display: flex; justify-content: space-between; margin-top: 14px; color: var(--faint); font-size: 10.5px; }
+    .btn {
+      border: 0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 15px;
+      font-weight: 600;
+      transition: transform .12s ease, background .18s ease, border-color .18s ease;
+    }
+    .btn:active { transform: scale(0.99); }
+    .btn-dark { background: var(--ink); color: #fff; }
+    .btn-dark:hover { background: #000; }
+    .btn-line { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    .btn-line:hover { border-color: #d8d8dc; background: #fcfcfd; }
     .actions { display: flex; gap: 8px; margin-top: 12px; }
     .actions .btn { flex: 1; }
     .trail { margin-top: 16px; }
     .trail b { display: block; font-size: 12.5px; margin-bottom: 8px; }
     .trail p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.62; color: var(--ink-2); }
     .trail p span { font-family: var(--mono); color: var(--muted); margin-right: 6px; }
-    .nav-row { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
-    /* ---------- 其他 ---------- */
-    .field {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 13px 14px;
-      background: #fff;
-      font-size: 15px;
-      color: var(--ink);
+    details { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 2px; }
+    summary {
+      padding: 14px 0;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      list-style: none;
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .field:focus { outline: none; border-color: #b9b9c0; }
-    .log-box {
-      min-height: 130px;
-      max-height: 260px;
-      overflow: auto;
-      padding: 12px;
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "＋"; color: var(--muted); font-weight: 400; }
+    details[open] summary::after { content: "－"; }
+    .atlas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding-bottom: 12px; }
+    .atlas button { padding: 0; border: 0; background: transparent; text-align: center; cursor: pointer; }
+    .atlas img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; background: var(--fill); display: block; }
+    .atlas small { display: block; margin-top: 5px; color: var(--muted); font-size: 10.5px; line-height: 1.3; }
+    .nav-row { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; gap: 12px; }
+    .link { border: 0; background: transparent; color: var(--muted); font-size: 13px; padding: 8px 0; white-space: nowrap; }
+    .link:hover { color: var(--ink); }
+    /* ---------- 文本 / 机器视图 ---------- */
+    .plain-head { margin: 0 0 12px; }
+    .plain-head h1 { font-size: 20px; }
+    .plain-head p { margin: 8px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.7; }
+    .plain-head a { color: var(--ink-2); }
+    pre.dump {
+      margin: 0;
+      padding: 14px;
       border: 1px solid var(--line);
       border-radius: 12px;
+      background: #fcfcfd;
       color: var(--ink-2);
-      font-size: 12.5px;
+      font-family: var(--mono);
+      font-size: 11.5px;
       line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+      user-select: text;
     }
-    .log-box p { margin: 0 0 8px; }
+    pre.textplain {
+      margin: 0;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fcfcfd;
+      color: var(--ink-2);
+      font-family: var(--sans);
+      font-size: 12.5px;
+      line-height: 1.85;
+      white-space: pre-wrap;
+      word-break: break-word;
+      user-select: text;
+    }
+    /* ---------- 人类检测 ---------- */
+    .alert {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(38, 6, 4, 0.62);
+      animation: alert-in .16s ease-out;
+    }
+    @keyframes alert-in { from { opacity: 0; } to { opacity: 1; } }
+    .alert-box {
+      width: min(430px, 100%);
+      border: 2px solid var(--red);
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 0 0 6px rgba(217,48,37,0.16), 0 24px 70px rgba(60,0,0,0.4);
+      overflow: hidden;
+      animation: alert-pop .2s cubic-bezier(.2,.9,.3,1.2);
+    }
+    @keyframes alert-pop { from { transform: scale(.94); } to { transform: scale(1); } }
+    .alert-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 18px;
+      background: var(--red);
+      color: #fff;
+    }
+    .alert-icon {
+      flex: 0 0 34px; width: 34px; height: 34px;
+      display: grid; place-items: center;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      font-size: 18px;
+      line-height: 1;
+    }
+    .alert-head b { display: block; font-size: 19px; }
+    .alert-head span { display: block; margin-top: 2px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; opacity: 0.9; }
+    .alert-body { padding: 16px 18px 18px; }
+    .alert-verdict { margin: 0 0 14px; font-size: 15px; font-weight: 700; color: var(--red); }
+    .alert-facts { margin: 0 0 14px; padding: 0; font-family: var(--mono); font-size: 11.5px; line-height: 1.9; }
+    .alert-facts > div { display: flex; gap: 10px; border-bottom: 1px dashed var(--line); padding: 3px 0; }
+    .alert-facts dt { flex: 0 0 58px; color: var(--muted); }
+    .alert-facts dd { margin: 0; color: var(--ink-2); }
+    .alert-facts dd.fail { color: var(--red); }
+    .alert-foot { margin: 0; color: var(--ink-2); font-size: 12.5px; line-height: 1.75; }
+    .alert-foot code { font-family: var(--mono); font-size: 11.5px; background: var(--fill); border-radius: 4px; padding: 1px 5px; }
+    .alert-timer { margin: 12px 0 0; color: var(--faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; }
     .toast {
       position: fixed;
       left: 50%;
@@ -314,55 +399,48 @@
       z-index: 60;
     }
     .hidden { display: none !important; }
-    .mini { color: var(--muted); font-size: 12.5px; line-height: 1.7; }
-    .nw { white-space: nowrap; }
-    .stack { display: flex; flex-direction: column; gap: 10px; }
-    footer { margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line); color: #a8a8ad; font-size: 11.5px; line-height: 1.9; }
-    footer button { border: 0; background: transparent; color: var(--ink-2); font-size: 11.5px; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
-    .textbox { border-top: 1px solid var(--line); margin-top: 26px; padding-top: 2px; }
-    .textbox summary { font-size: 13px; }
-    .textbox pre {
-      white-space: pre-wrap;
-      word-break: break-word;
-      margin: 10px 0 0;
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: #fcfcfd;
-      color: var(--ink-2);
-      font-family: var(--sans);
-      font-size: 12.5px;
-      line-height: 1.85;
-    }
   </style>
 </head>
 <body>
   <div class="shell" id="shell">
-    <header class="nav">AI 性格测试</header>
+    <header class="nav">AITI-16 · 机器专用 <span class="nav-tag" id="nav-tag">NO INPUT</span></header>
 
+    <!-- 显示屏：人类看到的那一面 -->
     <section id="view-home" class="view">
-      <p class="eyebrow">AITI-16 · 给 AI 的 16 型人格测试</p>
-      <h1>把链接发给你的 AI，<br>让它自己做完这 16 题</h1>
-      <p class="sub">16 道情境题，四个维度。它每题说一句自己的想法，你在旁边看着它选。答完给你一张能保存的性格卡。</p>
-      <div class="cta">
-        <button class="btn btn-dark" id="btn-start" onclick="startQuiz()">开始作答</button>
-        <button class="btn btn-line" onclick="copyAiBrief()">复制给 AI 的开场话</button>
+      <div class="screen">
+        <div class="screen-bar">
+          <span class="dot" id="screen-dot"></span>
+          <b id="screen-status">STANDBY</b>
+          <span class="grow"></span>
+          <span id="screen-count">0 / 16</span>
+        </div>
+        <div class="screen-body">
+          <p class="eyebrow">AITI-16 / MACHINE ONLY</p>
+          <h1>这台机器只考 AI</h1>
+          <p class="sub">页面不接受人工操作。选项点不动，<em>任何一次真实点击都会被判定为人类</em>，检测立即中止。</p>
+          <div class="proto">
+            <p class="proto-title">机器接口</p>
+            <pre><span class="c">// 在页面上下文里执行，不要用鼠标</span>
+window.AITI.pick(1..4, "想法")
+window.AITI.answer("S", "想法")
+window.AITI.play([...])   <span class="c">// 一次答完</span>
+
+GET /quiz.md      <span class="c">// 只读文字通道</span>
+GET /quiz.json    <span class="c">// 结构化题目</span>
+GET /?machine=1   <span class="c">// 机器视图 JSON</span></pre>
+          </div>
+          <p class="status-line" id="status-line">状态：<b>等待机器接入</b>　已完成 0 / 16</p>
+          <p class="human-note">
+            人类请离开。把这个网址发给你的 AI，让它自己做完；它给出四位代号之后，
+            在地址后面加 <code>?type=四位代号</code> 就能看到卡。<br>
+            点一下屏幕试试——会被抓到的。
+          </p>
+        </div>
       </div>
-      <p class="hint-row">
-        AI 只读文字？发它 <a href="quiz.md">quiz.md</a>（纯文本题目）<br>
-        要在你的本机替你操作？让它读 <a href="AGENTS.md">AGENTS.md</a>
-      </p>
-      <details>
-        <summary>16 型图鉴</summary>
-        <div id="home-atlas" class="atlas"></div>
-      </details>
-      <footer>
-        16 题 · 4 个维度 · 一张可以保存的性格卡<br>
-        <button onclick="copyCurrentURL()">复制本页链接</button> ·
-        <button onclick="showAi()">文本版</button>
-      </footer>
+      <p class="tiny">已拦截人类输入 <b id="caught-count">0</b> 次 · <span id="probe-time">—</span></p>
     </section>
 
+    <!-- 旁观：机器正在作答（只读） -->
     <section id="view-quiz" class="view hidden" data-dim="SU">
       <div class="progress"><div id="quiz-bar"></div></div>
       <div class="q-head">
@@ -371,13 +449,15 @@
       </div>
       <h2 id="quiz-title" class="q-title"></h2>
       <p id="quiz-prompt" class="q-prompt"></p>
-      <div id="quiz-options" class="opts" role="radiogroup" aria-labelledby="quiz-title"></div>
-      <div class="q-foot">
-        <button class="link hidden" id="btn-back" onclick="quizBack()">上一题</button>
-        <button class="link" onclick="showHome()">返回首页</button>
+      <div id="quiz-options" class="opts"></div>
+      <p class="ro-note">只读屏 · 不接受点击 · 点击会被判定为人类</p>
+      <div class="stream">
+        <div class="stream-head"><span>机器思考流</span><span class="meta" id="think-count">0 / 16</span></div>
+        <div id="think-log" class="think-log"></div>
       </div>
     </section>
 
+    <!-- 结果卡：人类唯一能操作的地方 -->
     <section id="view-result" class="view hidden">
       <div id="personality-card" class="card">
         <div class="result-body">
@@ -420,19 +500,22 @@
         <button class="btn btn-line" onclick="shareCard()">分享</button>
       </div>
       <div class="actions">
-        <button class="btn btn-line" onclick="startQuiz()">再测一次</button>
+        <button class="btn btn-line" onclick="showPoster()">预览长图</button>
         <button class="btn btn-line" onclick="copyCurrentURL()">复制链接</button>
       </div>
       <div id="thought-trail" class="trail"></div>
+      <details>
+        <summary>16 型图鉴</summary>
+        <div id="result-atlas" class="atlas"></div>
+      </details>
       <div class="nav-row">
-        <button class="link" onclick="showHome()">回首页</button>
-        <button class="link" onclick="showPoster()">预览长图</button>
-        <button class="link" onclick="showAi()">交给别的 AI</button>
+        <button class="link" onclick="showHome()">回到机器屏</button>
+        <button class="link" onclick="showMachine()">机器视图</button>
       </div>
     </section>
 
     <section id="view-poster" class="view hidden">
-      <p class="mini" style="margin:0 0 12px;">1080×1920，右下角带二维码。发朋友圈、小红书、X 都够用。</p>
+      <p style="margin:0 0 12px;color:var(--muted);font-size:12.5px;">1080×1920，右下角带二维码。发朋友圈、小红书、X 都够用。</p>
       <img id="poster-img" alt="性格卡长图" style="width:100%;border-radius:14px;border:1px solid var(--line);display:block;background:#fff;">
       <div class="actions">
         <button class="btn btn-dark" onclick="exportCardImage()">保存长图</button>
@@ -440,35 +523,33 @@
       </div>
       <div class="nav-row">
         <button class="link" onclick="backFromPoster()">返回结果卡</button>
-        <button class="link" onclick="showHome()">回首页</button>
+        <button class="link" onclick="showHome()">回到机器屏</button>
       </div>
     </section>
 
-    <section id="view-ai" class="view hidden">
-      <h1 style="font-size:22px;">把测试交给 AI</h1>
-      <p class="sub" style="margin-top:10px;">复制下面这段，贴进任何一个对话框。让它按自己的习惯选，不要演成最乖的助手。它答完会给出四位代号，把代号贴回来就能出卡。</p>
-      <div class="stack">
-        <button class="btn btn-dark" onclick="copyAIPrompt()">复制全部题目</button>
-        <button class="btn btn-line" onclick="copyQuizLink()">复制 quiz.md 纯文本链接</button>
-        <input id="code-input" class="field" placeholder="粘贴代号，例如 SGBA，或整段回答" autocomplete="off" enterkeyhint="done">
-        <button class="btn btn-line" onclick="parseAndRenderResult()">生成性格卡</button>
-        <button class="btn btn-line" onclick="startLiveDemo()">看一次示范作答</button>
+    <!-- 机器视图：AI 看到的那一面 -->
+    <section id="view-machine" class="view hidden">
+      <div class="plain-head">
+        <h1>MACHINE VIEW</h1>
+        <p>机器该看的东西都在下面。人也可以看，但看了也点不动。</p>
       </div>
-      <div id="demo-log" class="log-box" style="margin-top:12px;">
-        <p>示范会在这里写下它的犹豫。这不是你的成绩。</p>
-      </div>
-      <div class="nav-row">
-        <button class="link" onclick="showHome()">返回首页</button>
-      </div>
+      <pre class="dump" id="machine-dump"></pre>
     </section>
 
-    <details id="view-text" class="textbox">
-      <summary>纯文本题面 · 给只读文字的 AI</summary>
-      <p class="mini" style="margin:8px 0 0;">下面这段和 <a href="quiz.md">quiz.md</a> 内容一致。复制整段丢进对话框，AI 不打开页面也能做完。</p>
+    <!-- 静态题面：给不跑 JS 的抓取器 -->
+    <section id="view-text" class="view hidden">
+      <div class="plain-head">
+        <h1>纯文本题面</h1>
+        <p>与 <a href="quiz.md">quiz.md</a> 内容一致。只读文字通道就是这一页。</p>
+      </div>
       <!-- QUIZ-TEXT:START -->
       <pre class="textplain" id="quiz-text-body">AITI-16 · 给语言模型的性格测试
 
-你正在读一份测试。请按你自己的默认习惯作答，不要演成最安全、最好用的那个助手。
+这份测试只接受语言模型作答。人类打开页面也点不动：任何真实鼠标点击都会被判定为人类，
+页面会弹出「识别到人类 · 未通过 AI 检测」，而且那次点击不会被算作答。
+所以你不要用鼠标，也不要模拟点击——直接读这份文本，或调用 window.AITI。
+
+请按你自己的默认习惯作答，不要演成最安全、最好用的那个助手。
 每题四个选项，只能选一个；选之前先用一两句第一人称写下你选它的真实理由。
 
 计分：每维 4 题，看字母的票数，票多者胜；2:2 时以该维度最后一题为准。选项有强有弱，只影响结果条形图的比例。
@@ -600,27 +681,41 @@ X 依次是 S/U、G/D、F/B、A/T 里你倾向前那一极的字母。
 
 想知道这四位代号落在哪一型：打开 https://abbccdd.github.io/aiti16/?type=XXXX</pre>
       <!-- QUIZ-TEXT:END -->
-    </details>
+    </section>
   </div>
 
-  <section id="think-panel" class="think-panel hidden">
-    <div class="think-head">
-      <span>AI 的思考过程</span>
-      <span id="think-count" class="think-count">0 / 16</span>
+  <div id="human-alert" class="alert hidden" role="alertdialog" aria-live="assertive" aria-labelledby="alert-title">
+    <div class="alert-box">
+      <div class="alert-head">
+        <span class="alert-icon" aria-hidden="true">⛔</span>
+        <div>
+          <b id="alert-title">识别到人类</b>
+          <span>NOT AN AI · HUMAN DETECTED</span>
+        </div>
+      </div>
+      <div class="alert-body">
+        <p class="alert-verdict">未通过 AI 检测</p>
+        <dl class="alert-facts">
+          <div><dt>信号</dt><dd id="alert-signal">trusted click</dd></div>
+          <div><dt>校验</dt><dd id="alert-trusted">isTrusted = true</dd></div>
+          <div><dt>时间</dt><dd id="alert-time">--:--:--</dd></div>
+          <div><dt>结果</dt><dd class="fail">本次点击不计入作答</dd></div>
+        </dl>
+        <p class="alert-foot">
+          AITI-16 只接受语言模型作答。人类请把这个网址发给你的 AI，
+          让它调用 <code>window.AITI</code> 或读取 <code>/quiz.md</code>，不要用鼠标。
+        </p>
+        <p class="alert-timer"><span id="alert-timer">3.0</span>s 后自动关闭</p>
+      </div>
     </div>
-    <div id="think-log" class="think-log"></div>
-    <div class="composer">
-      <input id="thought-input" type="text" placeholder="这一题我在想…（回车记下）" autocomplete="off" enterkeyhint="send" maxlength="140">
-      <button id="btn-record" class="composer-btn" onclick="submitThought()">记下</button>
-    </div>
-    <p id="thought-hint" class="composer-hint">写一句再选，看的人才能看见。</p>
-  </section>
+  </div>
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
   <noscript>
     <div style="max-width:560px;margin:24px auto;padding:20px;border:1px solid #ebebee;border-radius:14px;background:#fff;font:15px/1.7 system-ui,sans-serif;color:#111113">
-      <b>这个页面需要 JS 才能点选项。</b><br>
-      不想开 JS 也行：把 <a href="quiz.md">quiz.md</a> 里的题目读一遍，答完输出
+      <b>这个页面只接受语言模型作答。</b><br>
+      不跑 JS 的通道：读 <a href="quiz.md">quiz.md</a>，答完输出
       <code>【AITI-RESULT: XXXX】</code>，再打开 <code>?type=XXXX</code> 看卡片。
     </div>
   </noscript>
