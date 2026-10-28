@@ -14,10 +14,15 @@ import { spawn } from "node:child_process";
 const args = process.argv.slice(2);
 const paceArg = args.find((a) => a.startsWith("--pace="));
 const delayArg = args.find((a) => a.startsWith("--start-delay="));
-const PACE = paceArg ? Math.max(300, Number(paceArg.split("=")[1]) || 1400) : 1400;
+const dwellArg = args.find((a) => a.startsWith("--dwell="));
+const PACE = paceArg ? Math.max(150, Number(paceArg.split("=")[1]) || 1400) : 1400;
 const START_DELAY = delayArg ? Math.max(0, Number(delayArg.split("=")[1]) || 0) : 0;
+const DWELL = dwellArg ? Math.max(200, Number(dwellArg.split("=")[1]) || 0) : 0;
 const rawUrl = args.find((a) => !a.startsWith("--")) || "https://abbccdd.github.io/aiti16/";
-const URL_ = rawUrl.includes("_s=") ? rawUrl : `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}_s=${Date.now()}`;
+const params = [];
+if (DWELL) params.push(`dwell=${DWELL}`);
+if (!rawUrl.includes("_s=")) params.push(`_s=${Date.now()}`);
+const URL_ = `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}${params.join("&")}`;
 
 const PORT = 9900;
 const CANDIDATES = [
@@ -146,11 +151,12 @@ async function main() {
   if (!ready) throw new Error("页面里没有 window.AITI，可能版本不对");
 
   const total = await evaluate(`AITI.state().total`);
+  const pacing = await evaluate(`AITI.pacing()`);
   if (START_DELAY > 0) {
-    console.log(`窗口已就位。${Math.round(START_DELAY / 1000)} 秒后开始作答，每题 ${(PACE / 1000).toFixed(1)} 秒——现在看屏幕。\n`);
+    console.log(`窗口已就位。${Math.round(START_DELAY / 1000)} 秒后开始——现在看屏幕。`);
     await sleep(START_DELAY);
   }
-  console.log(`机器接口就绪，共 ${total} 题。屏幕上现在应该在机器屏，接着看——\n`);
+  console.log(`机器接口就绪，共 ${total} 题。屏幕每题停留 ${(pacing.dwell / 1000).toFixed(1)} 秒（先想法、再选中）。\n`);
 
   for (let i = 0; i < ANSWERS.length; i += 1) {
     const [idx, thought] = ANSWERS[i];
