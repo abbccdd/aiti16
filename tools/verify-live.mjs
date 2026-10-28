@@ -38,8 +38,9 @@ async function main() {
   note("红框文案在页面里", home.text.includes("识别到人类") && home.text.includes("未通过 AI 检测"));
   note("机器接口印在屏上", home.text.includes("window.AITI.pick"));
   const homeSection = (home.text.match(/<section id="view-home"[\s\S]*?<\/section>/) || [""])[0];
-  note("首页机器屏没有任何 button", homeSection.length > 500 && !/<button/i.test(homeSection), `${homeSection.length} 字符`);
+  note("首页机器屏的按钮只在配对面板里", homeSection.length > 500 && /<div class="pairbox" data-human-ok>[\s\S]*?<button/.test(homeSection));
   note("首页机器屏没有输入框", !/<input|<textarea/i.test(homeSection));
+  note("配对面板可生成链接", home.text.includes("生成给 AI 的链接") && home.text.includes("data-human-ok"));
 
   // AI 直读通道
   const md = await grab("/quiz.md");

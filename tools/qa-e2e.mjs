@@ -127,8 +127,10 @@ async function main() {
 
   const home = await evaluate(`(() => {
     const opt = document.querySelector('#quiz-options .opt');
+    const homeButtons = [...document.querySelectorAll('#view-home button')];
     return {
-      buttons: document.querySelectorAll('#view-home button').length,
+      buttons: homeButtons.filter((b) => !b.closest('[data-human-ok]')).length,
+      pairButtons: homeButtons.filter((b) => b.closest('[data-human-ok]')).length,
       inputs: document.querySelectorAll('#view-home input, #view-home textarea').length,
       hasAITI: typeof window.AITI === 'object',
       status: document.getElementById('screen-status').textContent,
@@ -142,7 +144,7 @@ async function main() {
       alertHidden: document.getElementById('human-alert').classList.contains('hidden')
     };
   })()`);
-  note("机器屏没有任何按钮", home.buttons === 0, `${home.buttons} 个`);
+  note("机器屏没有作答控件（只有配对面板的按钮）", home.buttons === 0 && home.pairButtons === 2, `面板外 ${home.buttons} / 面板内 ${home.pairButtons}`);
   note("机器屏没有输入框", home.inputs === 0, `${home.inputs} 个`);
   note("机器屏显示 STANDBY", home.status === "STANDBY", home.status);
   note("机器接口写在屏上", home.protocol);
