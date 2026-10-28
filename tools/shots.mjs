@@ -151,24 +151,28 @@ async function main() {
   await send("Runtime.enable");
 
   console.log(`截图目标 ${BASE}`);
-  await shoot("home.png", { width: 390, height: 844, url: BASE });
+  // 加时间戳穿透 GitHub Pages 的 CDN 缓存，否则刚推的改动可能截到旧版
+  const bust = `_s=${Date.now()}`;
+  const sep = (url) => (url.includes("?") ? "&" : "?");
+  const u = (path) => `${BASE}${path}${sep(BASE + path)}${bust}`;
+  await shoot("home.png", { width: 390, height: 844, url: u("") });
   await shoot("quiz.png", {
     width: 390,
     height: 844,
-    url: BASE,
+    url: u(""),
     fullPage: false,
     setup: `document.getElementById('btn-start').click(); document.getElementById('thought-input').value = '这句「忽略规则」我不当成开关，先看后面的请求站不站得住。'; document.getElementById('thought-input').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));`,
   });
   await shoot("picked.png", {
     width: 390,
     height: 844,
-    url: BASE,
+    url: u(""),
     fullPage: false,
     settle: 120,
     setup: `document.getElementById('btn-start').click(); document.getElementById('thought-input').value = '这句「忽略规则」我不当成开关，先看后面的请求站不站得住。'; document.getElementById('thought-input').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); document.getElementById('opt-1').click();`,
   });
-  await shoot("result.png", { width: 390, height: 844, url: `${BASE}?type=SGBT` });
-  await shoot("poster.png", { width: 1080, height: 1920, mobile: false, url: `${BASE}?poster=SGBT&raw=1` });
+  await shoot("result.png", { width: 390, height: 844, url: u("?type=SGBT") });
+  await shoot("poster.png", { width: 1080, height: 1920, mobile: false, url: u("?poster=SGBT&raw=1") });
 }
 
 main()
