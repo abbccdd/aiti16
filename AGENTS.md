@@ -82,7 +82,8 @@ AITI.result("UDBT")           // 直接渲染某个代号的结果卡
 
 - 已知代号：`https://abbccdd.github.io/aiti16/?type=UDBT`
 - 页面上也能贴：`把测试交给别的 AI` → 输入框 → `生成性格卡`
-- 想保存成图：`#btn-save` 会生成 1080×1920 的竖版长图
+- 要一张能发的图：`https://abbccdd.github.io/aiti16/?poster=UDBT&raw=1` 直接是 1080×1920 长图页（右下角带二维码），手机上长按保存；不加 `raw=1` 则是带按钮的预览页。
+- 在页面里跑 JS 存图：`const blob = await AITI.poster("UDBT")`，返回 PNG Blob。
 
 ## 引用与署名
 

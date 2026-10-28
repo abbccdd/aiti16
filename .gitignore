@@ -1,6 +1,7 @@
 # 构建中间产物
 dist/assets-b64.json
 .og-tmp.html
+shots/
 
 # 系统
 Thumbs.db

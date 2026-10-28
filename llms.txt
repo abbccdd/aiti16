@@ -7,6 +7,7 @@
 - 只读文字：读 https://abbccdd.github.io/aiti16/quiz.md（或 https://abbccdd.github.io/aiti16/quiz.txt、https://abbccdd.github.io/aiti16/quiz.json），自己答完，输出 `【AITI-RESULT: XXXX】`。
 - 能开浏览器：打开 https://abbccdd.github.io/aiti16/ ，依次点选项；或在该页执行 `AITI.questions()` 与 `AITI.answer(字母, 想法)`。
 - 已经知道代号：打开 https://abbccdd.github.io/aiti16/?type=XXXX 直接看性格卡。
+- 想给人类一张图：https://abbccdd.github.io/aiti16/?poster=XXXX&raw=1 是纯长图页（1080×1920，带二维码），手机上长按即可保存。
 
 ## 端点
 
@@ -14,6 +15,7 @@
 - https://abbccdd.github.io/aiti16/quiz.txt — 同上，纯文本
 - https://abbccdd.github.io/aiti16/quiz.json — 结构化：axes / questions / types
 - https://abbccdd.github.io/aiti16/?type=XXXX — 指定代号的结果卡，可截图分享
+- https://abbccdd.github.io/aiti16/?poster=XXXX — 长图预览，加 &raw=1 只看图
 - https://abbccdd.github.io/aiti16/AGENTS.md — 给在本机操作浏览器的 agent 的操作手册
 
 ## 规则

@@ -33,8 +33,10 @@ tools/build.mjs           构建脚本
 tools/img.py              图片预处理（Pillow：缩略图、内联包、图标）
 tools/og.py               生成 og.png 分享封面
 tools/qr.mjs              生成 assets/qr.png（长图右下角二维码，构建时联网一次）
-tools/smoke.mjs           无浏览器冒烟测试
-tools/verify-live.mjs     线上端点验收
+tools/smoke.mjs           无浏览器冒烟测试（DOM 桩跑全流程）
+tools/verify-live.mjs     线上端点验收（状态码 + 关键内容）
+tools/qa-e2e.mjs          真浏览器端到端（CDP：真点击 16 题、长图、刷新持久化）
+tools/qa-shots.py         截图像素核对（无视觉能力时的长图排版验收）
 dist/AITI-16.html         单文件离线版（构建产物）
 ```
 
@@ -42,10 +44,17 @@ dist/AITI-16.html         单文件离线版（构建产物）
 
 ```powershell
 node tools/build.mjs         # 生成数据、文本通道、缩略图、单文件版
-node tools/og.mjs            # 重截 og.png（需要本机 Chrome）
-node tools/smoke.mjs         # 无浏览器冒烟测试：id 对账、16 题全流程、平票规则、16 型长图排版
-node tools/verify-live.mjs   # 线上验收：逐端点拉一遍，查状态码与关键内容
+node tools/og.py             # 重新生成 og.png（纯 Pillow，不需要浏览器）
+node tools/qr.mjs            # 重新生成二维码（换域名后必跑）
+node tools/smoke.mjs         # 无浏览器冒烟：id 对账、16 题流程、平票规则、16 型长图排版
+node tools/verify-live.mjs   # 线上端点验收（32 项）
+node tools/qa-e2e.mjs        # 真浏览器端到端（22 项），也接受 file:// 单文件版地址
 ```
+
+已跑过的验收记录：
+
+- 线上 `https://abbccdd.github.io/aiti16/`：`verify-live` 32 项通过；`qa-e2e` 22 项通过（真点击走完 16 题、长图 1080×1920 / 1209 KB）。
+- 离线 `dist/AITI-16.html`：`qa-e2e` 22 项通过（`file://` 下长图同样能导出，1057 KB）。
 
 三个入口：线上 <https://abbccdd.github.io/aiti16/>，单文件 `dist/AITI-16.html`，以及给 AI 的 `quiz.md`。
 
