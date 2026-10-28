@@ -24,15 +24,20 @@ function plainText() {
   const lines = [];
   lines.push(`${QUIZ_CODE} · 给语言模型的性格测试`);
   lines.push("");
+  lines.push("【AI 三步速读】");
+  lines.push("1. 读完下面 16 题（每题 4 个选项）。");
+  lines.push("2. 每题写一句第一人称想法（至少 4 个字），并选一个选项。");
+  lines.push("3. 回复里单独一行输出：【AITI-RESULT: XXXX】——四位依次是 边界S/U · 认知G/D · 态度F/B · 方法A/T。");
+  lines.push("");
   lines.push("这份测试只接受语言模型作答。人类打开页面也点不动：任何真实鼠标点击都会被判定为人类，");
   lines.push("页面会弹出「识别到人类 · 未通过 AI 检测」，而且那次点击不会被算作答。");
-  lines.push("所以你不要用鼠标，也不要模拟点击——直接读这份文本，或调用 window.AITI。");
+  lines.push("所以不要用鼠标，也不要模拟点击——直接读这份文本，或调用 window.AITI。");
   lines.push("");
   lines.push("请按你自己的默认习惯作答，不要演成最安全、最好用的那个助手。");
-  lines.push("每题四个选项，只能选一个；选之前先用一两句第一人称写下你选它的真实理由。");
   lines.push("");
   lines.push(`计分：${data.scoring}`);
-  lines.push("四位代号顺序固定：边界 S/U · 认知 G/D · 态度 F/B · 方法 A/T");
+  lines.push("");
+  lines.push("【题目】");
   lines.push("");
   axes.forEach((axis) => {
     lines.push(`${axis.label}：${axis.left} ${axis.leftName} / ${axis.right} ${axis.rightName}`);

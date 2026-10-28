@@ -126,9 +126,10 @@ function makeNode(id) {
 }
 
 const windowListeners = [];
-const location_ = new URL("https://abbix.test/aiti16/");
+const location_ = new URL("https://abbix.test/aiti16/?dwell=250");
 const warnings = [];
 const store = new Map();
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const sandbox = {
   document: document_,
@@ -218,7 +219,35 @@ if (!AITI) {
     return picks[idxs[idxs.length - 1]].letter;
   }).join("");
 
-  // 逐个 pick
+  // 单题：逻辑立刻记下，屏幕分两拍播（先想法，再选中）
+  AITI.start();
+  AITI.pick(1, "这一题我选第一项，理由是这更像我的默认反应。");
+  const snapA = {
+    answered: AITI.state().answered,
+    playing: AITI.state().display.playing,
+    phase: AITI.state().display.phase,
+    picked: (document_.getElementById("quiz-options").innerHTML.match(/is-picked/g) || []).length,
+    count: document_.getElementById("quiz-count").textContent
+  };
+  if (snapA.answered !== 1) problems.push("pick 之后答案没立刻记下");
+  else if (!snapA.playing || snapA.phase !== "thought") problems.push(`播放阶段不对：${JSON.stringify(snapA)}`);
+  else if (snapA.picked !== 0) problems.push("想法阶段就已经亮出选中了");
+  else ok.push("pick 立刻记下答案，屏幕先播「想法」阶段（未亮选中）");
+
+  await sleep(300);   // 第一题 = dwell 250 + intro 200，想法阶段约 200ms
+  const snapB = {
+    picked: (document_.getElementById("quiz-options").innerHTML.match(/is-picked/g) || []).length,
+    phase: AITI.state().display.phase
+  };
+  if (snapB.picked !== 1 || snapB.phase !== "picked") problems.push(`选中态没有在第二拍亮出：${JSON.stringify(snapB)}`);
+  else ok.push("第二拍才亮出「✓ 机器选中」");
+
+  await sleep(320);
+  const snapC = { count: document_.getElementById("quiz-count").textContent, playing: AITI.state().display.playing };
+  if (!snapC.count.startsWith("02")) problems.push(`没有自动翻到第 2 题：${snapC.count}`);
+  else ok.push("停留结束后自动翻到下一题");
+
+  // 快速逐题 pick：屏幕落后，答案全部立刻记下
   AITI.start();
   let guard = 0;
   while (guard < 20 && !AITI.state().complete) {
@@ -228,8 +257,14 @@ if (!AITI) {
     AITI.pick(idx, `第 ${cur.index} 题我选 ${idx}，理由是这更像我的默认反应。`);
     guard += 1;
   }
-  if (!AITI.state().complete) problems.push("逐题 pick 没能答完 16 题");
-  else ok.push(`逐题 pick 完成，代号 ${AITI.code()}，状态 ${AITI.state().answered}/16`);
+  const afterBurst = AITI.state();
+  if (!afterBurst.complete) problems.push("快速逐题 pick 没能答完 16 题");
+  else if (afterBurst.display.queued < 10) problems.push(`节奏没被强制排队：queued=${afterBurst.display.queued}`);
+  else ok.push(`一口气答完 16 题，屏幕仍排着 ${afterBurst.display.queued} 题的队`);
+
+  const idle = await AITI.whenIdle();
+  if (!idle || idle.code !== AITI.code()) problems.push(`whenIdle 返回异常：${JSON.stringify(idle)}`);
+  else ok.push(`whenIdle 等到播完：${idle.code}`);
 
   // 题面渲染：4 个选项、选中的那个带 is-picked
   const optHtml = document_.getElementById("quiz-options").innerHTML;
@@ -251,7 +286,8 @@ if (!AITI) {
   const res = AITI.play(picks.map((o, i) => ({ index: o.index, thought: `第 ${i + 1} 题按平票测试作答，够四个字。` })));
   const expect = codeOf(picks);
   if (res.code !== expect) problems.push(`平票规则错：应得 ${expect}，实际 ${res.code}`);
-  else ok.push(`play 一次答完 + 2:2 平票取最后一题 → ${res.code}`);
+  else ok.push(`play 一次提交 + 2:2 平票取最后一题 → ${res.code}`);
+  await AITI.whenIdle();
 
   // answer 按字母
   AITI.start();
@@ -260,6 +296,7 @@ if (!AITI) {
   AITI.answer(letterPick, "我按字母回答，理由写得够长。");
   if (AITI.state().answered !== 1) problems.push("answer() 没有记下一题");
   else ok.push(`answer("${letterPick}") 按极字母作答成功`);
+  await AITI.whenIdle();
 
   // 加权百分比
   const pcts = AITI.percents("UDBT");

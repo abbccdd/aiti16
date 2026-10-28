@@ -82,6 +82,9 @@ function waitEvent(name, timeout = 20000) {
 
 const setViewport = (width, height) => send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 700 });
 
+/** 测试用快节奏：dwell 压到 400ms，屏幕播得快，断言才不用等一分钟 */
+const withDwell = (extra) => `${BASE}?dwell=400${extra ? `&${extra}` : ""}&_s=${Date.now()}`;
+
 async function main() {
   let target = null;
   for (let i = 0; i < 80; i += 1) {
@@ -118,7 +121,7 @@ async function main() {
   /* ---------- 1. 机器屏：没有可点的作答控件 ---------- */
   await setViewport(390, 844);
   const loaded = waitEvent("Page.loadEventFired");
-  await send("Page.navigate", { url: `${BASE}?_s=${Date.now()}` });
+  await send("Page.navigate", { url: withDwell("") });
   await loaded;
   await sleep(700);
 
@@ -131,6 +134,10 @@ async function main() {
       status: document.getElementById('screen-status').textContent,
       count: document.getElementById('screen-count').textContent,
       protocol: document.querySelector('.proto pre').textContent.includes('window.AITI.pick'),
+      quickstart: (document.getElementById('ai-quickstart') || {}).textContent || '',
+      altLink: Boolean(document.querySelector('link[rel="alternate"][href="quiz.md"]')),
+      altJson: Boolean(document.querySelector('link[rel="alternate"][href="quiz.json"]')),
+      startHere: (AITI.machine() || {}).start_here || '',
       overflow: document.documentElement.scrollWidth - window.innerWidth,
       alertHidden: document.getElementById('human-alert').classList.contains('hidden')
     };
@@ -141,6 +148,12 @@ async function main() {
   note("机器接口写在屏上", home.protocol);
   note("window.AITI 可用", home.hasAITI);
   note("390px 无横向溢出", home.overflow <= 1);
+
+  /* ---------- 1b. 陌生 AI 能不能自己读懂该怎么做 ---------- */
+  note("屏首有 FOR AI 三步速读", home.quickstart.includes("FOR AI") && home.quickstart.includes("AITI-RESULT"), home.quickstart.slice(0, 40));
+  note("屏上写了提交格式", home.protocol && home.quickstart.includes("【AITI-RESULT: XXXX】"));
+  note("HTML 里有 quiz.md / quiz.json 的 alternate 链接", home.altLink && home.altJson);
+  note("机器视图给出 start_here", home.startHere.includes("三步") || home.startHere.includes("①"), home.startHere.slice(0, 30));
 
   /* ---------- 2. 真实鼠标点击 → 识别到人类，且不计入作答 ---------- */
   const before = await evaluate(`({ answered: AITI.state().answered, caught: AITI.detector().caught })`);
@@ -189,22 +202,38 @@ async function main() {
       streamItems: document.querySelectorAll('#think-log .log-item').length,
       answered: AITI.state().answered,
       caught: AITI.detector().caught,
+      phase: AITI.state().display.phase,
       count: document.getElementById('quiz-count').textContent
     };
   })()`);
   note("程序作答后屏幕切到旁观视图", firstPick.view);
   note("旁观屏有 4 个按钮式选项", firstPick.cards === 4, firstPick.cards);
   note("选项看起来像按钮（cursor: pointer）", firstPick.cursor === "pointer", firstPick.cursor);
-  note("选中态由程序驱动", firstPick.picked === 1 && firstPick.faded === 3, `选中 ${firstPick.picked} / 淡出 ${firstPick.faded}`);
-  note("选项带「机器选中」标记", String(firstPick.mark).includes("机器选中"), firstPick.mark);
   note("思考流出现 1 条", firstPick.streamItems === 1, firstPick.streamItems);
   note("程序作答没有触发人类检测", firstPick.caught === caughtBeforePick, `${caughtBeforePick} → ${firstPick.caught}`);
-  note("作答进度 1/16", firstPick.answered === 1, firstPick.answered);
+  note("作答逻辑立刻记下（1/16）", firstPick.answered === 1, firstPick.answered);
+  note("第一拍只显示想法，还没亮选中", firstPick.picked === 0 && firstPick.phase === "thought", `选中 ${firstPick.picked} / ${firstPick.phase}`);
 
-  // 停留一拍后自动翻到下一题
-  await sleep(700);
-  const advanced = await evaluate(`({ count: document.getElementById('quiz-count').textContent, picked: document.querySelectorAll('#quiz-options .opt.is-picked').length })`);
-  note("约 0.45s 后自动翻到下一题", advanced.count.startsWith("02") && advanced.picked === 0, `${advanced.count} 选中 ${advanced.picked}`);
+  // 第二拍：亮出选中（dwell 400 + 开场延长 400 → 想法阶段约 360ms）
+  await sleep(430);
+  const picked = await evaluate(`({
+    phase: AITI.state().display.phase,
+    picked: document.querySelectorAll('#quiz-options .opt.is-picked').length,
+    faded: document.querySelectorAll('#quiz-options .opt.is-faded').length,
+    mark: (document.querySelector('#quiz-options .opt.is-picked .opt-mark') || {}).textContent
+  })`);
+  note("第二拍才亮出「✓ 机器选中」", picked.phase === "picked" && picked.picked === 1 && picked.faded === 3, `${picked.phase} 选中 ${picked.picked}`);
+  note("选项带「机器选中」标记", String(picked.mark).includes("机器选中"), picked.mark);
+
+  // 停留走完自动翻页
+  await sleep(520);
+  const advanced = await evaluate(`({
+    count: document.getElementById('quiz-count').textContent,
+    picked: document.querySelectorAll('#quiz-options .opt.is-picked').length,
+    note: document.getElementById('ro-note').textContent
+  })`);
+  note("停留结束后自动翻到下一题", advanced.count.startsWith("02") && advanced.picked === 0, `${advanced.count} 选中 ${advanced.picked}`);
+  note("屏上标了每题停留时长", advanced.note.includes("停留"), advanced.note.slice(0, 24));
 
   /* ---------- 4b. 真实点击「选项卡片」本身：只弹红框，绝不算作答 ---------- */
   const optBox = await evaluate(`(() => {
@@ -236,22 +265,35 @@ async function main() {
   note("合成点击不改变作答", synth.answered === 1, synth.answered);
   note("合成点击不弹人类红框", !synth.alertVisible && synth.caught === onOption.caught, `${onOption.caught} → ${synth.caught}`);
 
-  /* ---------- 6. 答完 16 题 ---------- */
-  const run = await evaluate(`(async () => {
+  /* ---------- 6. 一口气答完 16 题：逻辑立即完成，屏幕按节奏播 ---------- */
+  const burst = await evaluate(`(() => {
     const qs = AITI.questions();
     const picks = qs.map((q, i) => q.options[i % 4]);
     AITI.start();
     for (let i = 0; i < qs.length; i += 1) {
-      const cur = AITI.current();
-      if (!cur) break;
-      AITI.pick(picks[i].index, '第 ' + cur.index + ' 题，我选第 ' + picks[i].index + ' 项，这是更像我默认反应的写法。');
-      await new Promise(r => setTimeout(r, 25));
+      AITI.pick(picks[i].index, '第 ' + (i + 1) + ' 题，我选第 ' + picks[i].index + ' 项，这是更像我默认反应的写法。');
     }
-    // 最后一题之后屏幕会停一拍再进结果页
+    const st = AITI.state();
+    return {
+      answered: st.answered,
+      complete: st.complete,
+      queued: st.display.queued,
+      playing: st.display.playing,
+      resultShown: !document.getElementById('view-result').classList.contains('hidden')
+    };
+  })()`);
+  note("16 次 pick 后逻辑已全部完成", burst.answered === 16 && burst.complete, `${burst.answered}/16`);
+  note("屏幕仍排着队（节奏被页面强制）", burst.playing && burst.queued >= 10, `queued ${burst.queued}`);
+  note("此刻还没跳结果页（先让人看完）", !burst.resultShown);
+
+  const run = await evaluate(`(async () => {
+    await AITI.whenIdle();
     for (let i = 0; i < 40; i += 1) {
       if (!document.getElementById('view-result').classList.contains('hidden')) break;
       await new Promise(r => setTimeout(r, 50));
     }
+    const qs = AITI.questions();
+    const picks = qs.map((q, i) => q.options[i % 4]);
     const axes = AITI.data.axes;
     const expected = axes.map((axis) => {
       const idxs = qs.map((q, i) => (q.dim === axis.dim ? i : -1)).filter((i) => i >= 0);
@@ -276,7 +318,7 @@ async function main() {
       overflow: document.documentElement.scrollWidth - window.innerWidth
     };
   })()`);
-  note("16 题程序作答后进结果页", run.resultVisible && run.answered === 16, `作答 ${run.answered}`);
+  note("屏幕播完后进入结果页", run.resultVisible && run.answered === 16, `作答 ${run.answered}`);
   note("代号与计分规则一致", run.code === run.expected, `${run.code} / 期望 ${run.expected}`);
   note("结果页插画加载", run.portraitW > 0, `${run.portraitW}px`);
   note("四条维度条都有宽度", run.bars.length === 4 && run.bars.every((w) => w.endsWith("%")), run.bars.join(" "));
@@ -305,7 +347,7 @@ async function main() {
 
   /* ---------- 9. 刷新后仍在结果页 ---------- */
   const reload = waitEvent("Page.loadEventFired");
-  await send("Page.navigate", { url: `${BASE}?_s=${Date.now()}` });
+  await send("Page.navigate", { url: withDwell("") });
   await reload;
   await sleep(700);
   const persisted = await evaluate(`({
@@ -318,20 +360,30 @@ async function main() {
 
   /* ---------- 10. 机器视图与深链 ---------- */
   const machineLoad = waitEvent("Page.loadEventFired");
-  await send("Page.navigate", { url: `${BASE}?machine=1&_s=${Date.now()}` });
+  await send("Page.navigate", { url: withDwell("machine=1") });
   await machineLoad;
   await sleep(600);
   const machine = await evaluate(`(() => {
     const text = document.getElementById('machine-dump').textContent;
     try {
       const json = JSON.parse(text);
-      return { ok: true, questions: json.questions.length, hasProtocol: Boolean(json.how_to_answer), endpoints: Object.keys(json.endpoints).length };
+      return {
+        ok: true,
+        questions: json.questions.length,
+        endpoints: Object.keys(json.endpoints).length,
+        startHere: json.start_here || '',
+        dwell: (json.pacing || {}).dwell_ms,
+        textOnly: ((json.how_to_answer || {}).text_only || []).join(' ')
+      };
     } catch (e) { return { ok: false, err: e.message }; }
   })()`);
   note("?machine=1 输出可解析的 JSON", machine.ok, machine.ok ? `${machine.questions} 题 / ${machine.endpoints} 个端点` : machine.err);
+  note("机器视图给了三步速读", String(machine.startHere).length > 20, String(machine.startHere).slice(0, 24));
+  note("机器视图写了纯文字路径 + 提交格式", String(machine.textOnly).includes("AITI-RESULT"), String(machine.textOnly).slice(0, 24));
+  note("机器视图标了播放节奏", machine.dwell === 400, `${machine.dwell}ms`);
 
   const deepLoad = waitEvent("Page.loadEventFired");
-  await send("Page.navigate", { url: `${BASE}?type=SGBT&_s=${Date.now()}` });
+  await send("Page.navigate", { url: withDwell("type=SGBT") });
   await deepLoad;
   await sleep(600);
   const deep = await evaluate(`({

@@ -30,6 +30,16 @@ AITI-16 是一套给**语言模型**的 16 型人格测试：16 道情境题，4
 每题 4 个选项（题面 A/B/C/D）：两个极各有一条「强」、一条「弱」。
 计分只看字母——每维 4 题，票多者胜；2:2 时以该维**最后一题**为准。强/弱只影响结果条形比例。
 
+## 节奏由页面控制，你不用等
+
+屏幕按 **约 4.2 秒/题** 播放（每题的「想法」先出现，停一拍才亮出「✓ 机器选中」），
+这是为了让旁边的人类读完。**你提交得再快都没关系**：答案立刻记下，屏幕排队慢慢播。
+
+- `AITI.pick()` 立刻返回下一题，`AITI.code()` 立刻可用
+- 想等屏幕播完、结果页就绪：`await AITI.whenIdle()`
+- `AITI.state().display` 能看到当前播放进度（`playing` / `queued` / `phase`）
+- 录屏或调试想调速：页面地址加 `?dwell=毫秒`（默认 4200，范围 800–20000）
+
 ## 三条路，选你能走的那条
 
 ### 1. 你只能读文字（最常见）
@@ -47,23 +57,25 @@ AITI-16 是一套给**语言模型**的 16 型人格测试：16 道情境题，4
 打开 <https://abbccdd.github.io/aiti16/>，然后：
 
 ```js
-AITI.machine()                       // 一次性拿到规则、端点、16 题、当前状态
+AITI.machine()                       // 一次性拿到规则、端点、16 题、当前状态、节奏
 AITI.questions()                     // 16 题 × 4 选项（index / label A-D / letter / weight / text）
 AITI.current()                       // 当前待答题
 AITI.pick(2, "这一题我在想…")         // 按题面序号 1..4 作答（想法至少 4 个字）
 AITI.answer("U", "这一题我在想…")     // 按极点字母作答（取该极「强」那条）
 AITI.think("这一题我在想…")           // 只记想法，不答题
-AITI.play([                          // 一次答完 16 题
+AITI.play([                          // 一次提交 16 题
   { index: 1, thought: "……" },
   { letter: "G", thought: "……" }
 ])
-AITI.state()                         // { answered, total, complete, answers, picks, thoughts, detector }
+AITI.whenIdle()                      // Promise：屏幕播完时 resolve（结果页就绪）
+AITI.state()                         // { answered, total, complete, answers, picks, thoughts, display, detector }
 AITI.code()                          // 四位代号
 AITI.poster("UDBT")                  // 生成 1080×1920 长图（PNG Blob）
 ```
 
-每次 `pick` 之后，屏幕会把刚才那道题停在「机器选中」状态约 0.45 秒再翻下一题——那是给旁边的人类看的。
-你可以连续快速调用，逻辑进度不会被这个动画拖慢。
+每次 `pick` 之后，屏幕会把那道题停在「想法」阶段约 1.9 秒、再亮出「✓ 机器选中」约 2.3 秒，
+然后才翻下一题——那是给旁边的人类读完的时间。**这个停留是页面强制的，不受你的调用速度影响**：
+你可以一口气把 16 题全提交，答案立刻全部记下，屏幕自己按节奏播完。
 
 ### 3. 你只能点（那你走错路了）
 

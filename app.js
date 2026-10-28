@@ -32,9 +32,15 @@
   const thoughts = {};
 
   let cursor = 0;          // 逻辑上「下一道待答题」
-  let displayCursor = 0;   // 屏幕上正在显示的那道题（为了让选中态停留一拍）
-  let advanceTimer = 0;
+  let displayCursor = 0;   // 屏幕上正在显示的那道题
   let currentView = "home";
+
+  /* 节奏由页面强制：AI 提交得再快，屏幕也按这个速度播，人类才有时间读懂想法。
+     开场第一题额外多停一会儿，避免「还没来得及看就过去了」。 */
+  const PACING = { dwell: 4200, thoughtShare: 0.45, intro: 1600, minDwell: 200, maxDwell: 20000 };
+
+  /** 广播队列：answers 立刻记下，屏幕按节奏往外播 */
+  const broadcast = { queue: [], playing: false, timer: 0, item: null, idle: [] };
   let posterUrl = "";
   let rawPoster = false;
   let demoToken = 0;
@@ -318,18 +324,31 @@
     return {
       protocol: DATA.code,
       audience: "language models only",
-      human_note: "本页面不接受人工点击。真实输入会被判定为人类并中止检测。",
+      human_note: "本页面不接受人工点击。真实输入会被判定为人类，弹出「识别到人类 · 未通过 AI 检测」，且不计入作答。",
+      start_here: "流程只有三步：① 读题（本页 AITI.questions() 或 /quiz.md） ② 每题写一句想法并选 1..4 ③ 输出【AITI-RESULT: XXXX】。不要点击页面。",
       how_to_answer: {
         js: [
-          "window.AITI.pick(1..4, \"这一题我在想…\")  // 按题面序号作答",
-          "window.AITI.answer(\"S\", \"这一题我在想…\")  // 按极点字母作答",
-          "window.AITI.play([{index:1,thought:\"…\"}, …])  // 一次答完 16 题"
+          "window.AITI.questions()                        // 16 题 × 4 选项",
+          "window.AITI.pick(1..4, \"这一题我在想…\")          // 每题：想法(≥4字) + 选项序号",
+          "window.AITI.answer(\"S\", \"这一题我在想…\")        // 或者按极点字母作答",
+          "window.AITI.play([{index:1,thought:\"…\"}, …])   // 一次提交 16 题",
+          "await window.AITI.whenIdle()                    // 等屏幕播完、结果页就绪"
         ],
-        text: ["GET /quiz.md", "GET /quiz.txt", "GET /quiz.json"],
+        text_only: [
+          "GET /quiz.md  或 /quiz.txt  或 /quiz.json  或 /?machine=1",
+          "读完自己作答，然后在回复里单独一行输出：",
+          "【AITI-RESULT: XXXX】",
+          "XXXX 依次是 边界S/U · 认知G/D · 态度F/B · 方法A/T"
+        ],
         submit: "单独一行输出 【AITI-RESULT: XXXX】"
+      },
+      pacing: {
+        dwell_ms: PACING.dwell,
+        note: `屏幕按 ${(PACING.dwell / 1000).toFixed(1)} 秒/题播放，是为了让旁边的人类读完机器的想法。你提交得再快也没关系：答案立即记下，屏幕排队慢慢播；想等播完再收尾就 await AITI.whenIdle()。`
       },
       rules: {
         options_per_question: 4,
+        thought_required: "每题必须写一句第一人称想法，至少 4 个字",
         weight_note: "weight 2 = 该极的强表述，1 = 弱表述；weight 只影响结果条形比例",
         scoring: DATA.scoring,
         code_order: "边界 S/U · 认知 G/D · 态度 F/B · 方法 A/T"
@@ -341,7 +360,8 @@
         result: `${siteBase()}?type=XXXX`,
         poster: `${siteBase()}?poster=XXXX&raw=1`,
         quiz_md: `${siteBase()}quiz.md`,
-        quiz_json: `${siteBase()}quiz.json`
+        quiz_json: `${siteBase()}quiz.json`,
+        agents_md: `${siteBase()}AGENTS.md`
       },
       state: {
         answered: answeredCount(),
@@ -381,12 +401,15 @@
   function renderStream() {
     const host = document.getElementById("think-log");
     if (!host) return;
+    // 处于「只显示想法」阶段时，当前这道题先不亮出选择
+    const pendingQid = broadcast.item && broadcast.item.mode === "thought" ? broadcast.item.id : null;
     const rows = [];
     QUESTIONS.forEach((q, index) => {
       const line = thoughts[q.id];
       const a = answers[q.id];
       if (!line && !a) return;
-      const picked = a ? `<em>选了 ${LETTERS[a.index - 1]}</em>` : "";
+      const revealed = a && q.id !== pendingQid;
+      const picked = revealed ? `<em>选了 ${LETTERS[a.index - 1]}</em>` : "";
       rows.push(`<div class="log-item">
         <div class="log-meta"><b>${String(index + 1).padStart(2, "0")}</b> · ${escapeHtml(axisByDim(q.dim).label)} ${picked}</div>
         <div class="log-text">${escapeHtml(line || "（没留想法）")}</div>
@@ -394,9 +417,8 @@
     });
     host.innerHTML = rows.length ? rows.join("") : `<p class="log-empty">还没有机器接入。它一开口，这里就会开始滚。</p>`;
     host.scrollTop = host.scrollHeight;
-    const count = QUESTIONS.filter((q) => thoughts[q.id] || answers[q.id]).length;
     const label = document.getElementById("think-count");
-    if (label) label.textContent = `${count} / ${QUESTIONS.length}`;
+    if (label) label.textContent = `${countThoughts()} / ${QUESTIONS.length}`;
   }
 
   function renderSpectator() {
@@ -414,7 +436,9 @@
     document.getElementById("quiz-title").textContent = q.title;
     document.getElementById("quiz-prompt").textContent = q.prompt;
 
-    const pickedIndex = answers[q.id] ? answers[q.id].index : 0;
+    // 只在「亮出选择」阶段才显示选中态
+    const revealPick = !broadcast.item || broadcast.item.mode === "picked";
+    const pickedIndex = revealPick && answers[q.id] ? answers[q.id].index : 0;
     document.getElementById("quiz-options").innerHTML = q.options.map((opt, i) => {
       const picked = pickedIndex === opt.index;
       const faded = pickedIndex && !picked;
@@ -426,6 +450,11 @@
       </div>`;
     }).join("");
 
+    const note = document.getElementById("ro-note");
+    if (note) {
+      note.textContent = `只读屏 · 每题停留 ${(PACING.dwell / 1000).toFixed(1)} 秒给你读完 · 点击会被判定为人类`;
+    }
+
     renderStream();
     updateScreenStatus();
   }
@@ -434,16 +463,89 @@
 
   function startRun() {
     QUESTIONS.forEach((q) => { delete answers[q.id]; delete thoughts[q.id]; });
-    clearTimeout(advanceTimer);
+    stopBroadcast();
     cursor = 0;
     displayCursor = 0;
     saveProgress();
     return true;
   }
 
+  /* ---------- 广播：屏幕按固定节奏播放机器的作答 ---------- */
+
+  function stopBroadcast() {
+    clearTimeout(broadcast.timer);
+    broadcast.queue.length = 0;
+    broadcast.playing = false;
+    broadcast.item = null;
+    settleIdle();
+  }
+
+  function settleIdle() {
+    if (broadcast.playing || broadcast.queue.length) return;
+    const waiting = broadcast.idle.splice(0);
+    waiting.forEach((resolve) => resolve({
+      code: isComplete() ? codeFromAnswers() : null,
+      answered: answeredCount()
+    }));
+  }
+
+  function whenIdle() {
+    if (!broadcast.playing && !broadcast.queue.length) {
+      return Promise.resolve({ code: isComplete() ? codeFromAnswers() : null, answered: answeredCount() });
+    }
+    return new Promise((resolve) => broadcast.idle.push(resolve));
+  }
+
+  function pushBroadcast(item) {
+    broadcast.queue.push(item);
+    if (!broadcast.playing) pumpBroadcast();
+  }
+
+  function pumpBroadcast() {
+    clearTimeout(broadcast.timer);
+    const item = broadcast.queue.shift();
+    if (!item) {
+      broadcast.playing = false;
+      broadcast.item = null;
+      broadcast.timer = 0;
+      if (isComplete()) {
+        openResult(codeFromAnswers());
+      } else if (countThoughts() > 0) {
+        displayCursor = cursor;
+        showView("quiz");
+        renderSpectator();
+      }
+      settleIdle();
+      return;
+    }
+
+    broadcast.playing = true;
+    broadcast.item = item;
+    displayCursor = item.qIndex;
+    // 第一题多停一拍，让人看清「机器开始作答」；但不超过一个常规停留
+    const dwell = PACING.dwell + (item.first ? Math.min(PACING.intro, PACING.dwell) : 0);
+
+    item.mode = "thought";                 // 阶段一：只有想法，先让人读完
+    showView("quiz");
+    renderSpectator();
+
+    broadcast.timer = setTimeout(() => {
+      item.mode = "picked";                // 阶段二：亮出选中
+      renderSpectator();
+      broadcast.timer = setTimeout(() => {
+        broadcast.playing = false;
+        pumpBroadcast();
+      }, Math.round(dwell * (1 - PACING.thoughtShare)));
+    }, Math.round(dwell * PACING.thoughtShare));
+  }
+
+  function countThoughts() {
+    return QUESTIONS.filter((q) => thoughts[q.id] || answers[q.id]).length;
+  }
+
   /** 记录想法，不答题 */
   function thinkThought(text) {
-    const q = QUESTIONS[displayCursor];
+    const q = QUESTIONS[displayCursor] || QUESTIONS[cursor];
     if (!q) return false;
     const clean = String(text || "").trim();
     if (clean.length < 4) throw new Error("每题都要写想法（至少 4 个字），它是要给人类看见的");
@@ -453,8 +555,8 @@
   }
 
   /**
-   * 记下这道题。屏幕先停在「刚被选中」那一拍（约 0.45s），再翻到下一题；
-   * 逻辑上的 cursor 立刻前移，所以 API 可以连续快速调用。
+   * 记下这道题。逻辑立刻完成（所以 AI 可以连续快速调用），
+   * 屏幕把它排进广播队列，按 PACING 一题一题播给人看。
    */
   function commitPick(opt, text) {
     const q = QUESTIONS[cursor];
@@ -465,22 +567,18 @@
 
     const done = isComplete();
     const next = QUESTIONS.findIndex((item) => !answers[item.id]);
-    cursor = done ? QUESTIONS.length - 1 : (next < 0 ? QUESTIONS.length - 1 : next);
-    displayCursor = answeredAt;
+    cursor = next < 0 ? Math.min(QUESTIONS.length - 1, answeredAt) : next;
+    if (done) cursor = QUESTIONS.length - 1;
 
-    clearTimeout(advanceTimer);
-    showView("quiz");
-    renderSpectator();
-    updateScreenStatus();
-
-    if (done) {
-      advanceTimer = setTimeout(() => openResult(codeFromAnswers()), 460);
-      return null;
-    }
-    advanceTimer = setTimeout(() => {
-      displayCursor = cursor;
-      if (currentView === "quiz") renderSpectator();
-    }, 460);
+    pushBroadcast({
+      qIndex: answeredAt,
+      id: q.id,
+      index: opt.index,
+      letter: opt.letter,
+      weight: opt.weight,
+      thought: text,
+      first: answeredCount() === 1 && broadcast.queue.length === 0 && !broadcast.playing
+    });
     return true;
   }
 
@@ -934,27 +1032,17 @@
 
   const abortDemo = () => { demoToken += 1; };
 
-  async function startLiveDemo() {
-    const token = ++demoToken;
+  /** 示范：模拟一台机器把 16 题答完（走同一套广播节奏，屏幕照样一题一题播） */
+  function startLiveDemo() {
     const codes = typeOrder();
     const code = codes[Math.floor(Math.random() * codes.length)];
-    startRun();
-    for (let i = 0; i < QUESTIONS.length; i += 1) {
-      if (token !== demoToken) return;
-      const q = QUESTIONS[cursor];
-      if (!q) break;
+    const rows = QUESTIONS.map((q, i) => {
       const axisIndex = AXES.findIndex((axis) => axis.dim === q.dim);
       const letter = code[axisIndex];
       const opt = q.options.find((o) => o.letter === letter && o.weight === 2) || q.options.find((o) => o.letter === letter);
-      const line = MY_RUN[i] || VOICE[letter][i % VOICE[letter].length];
-      thoughts[q.id] = line;
-      showView("quiz");
-      renderSpectator();
-      await sleep(520);
-      if (token !== demoToken) return;
-      pickByIndex(opt.index, line);
-      await sleep(520);
-    }
+      return { index: opt.index, thought: MY_RUN[i] || VOICE[letter][i % VOICE[letter].length] };
+    });
+    window.AITI.play(rows);
   }
 
   /* ---------- 初始化 ---------- */
@@ -966,6 +1054,12 @@
 
     const params = new URLSearchParams(window.location.search);
     rawPoster = params.has("raw");
+
+    // 播放节奏：?dwell=毫秒（给录屏/测试调速用）
+    const dwellParam = Number(params.get("dwell"));
+    if (Number.isFinite(dwellParam) && dwellParam > 0) {
+      PACING.dwell = Math.min(PACING.maxDwell, Math.max(PACING.minDwell, dwellParam));
+    }
 
     const posterCode = extractCode(params.get("poster") || "");
     if (posterCode && TYPES[posterCode]) { showPosterView(posterCode); return; }
@@ -1032,6 +1126,13 @@
         answers: letters,
         picks,
         thoughts: { ...thoughts },
+        display: {
+          playing: broadcast.playing,
+          queued: broadcast.queue.length,
+          question: broadcast.item ? broadcast.item.qIndex + 1 : displayCursor + 1,
+          phase: broadcast.item ? broadcast.item.mode : "idle",
+          dwell_ms: PACING.dwell
+        },
         detector: { caught: detector.caught, lastSignal: detector.lastSignal, lastAt: detector.lastAt }
       };
     },
@@ -1043,15 +1144,14 @@
     pick(index, thought) { const r = pickByIndex(index, thought); return r ? this.current() : this.state(); },
     /** 按极点字母作答（取该极的「强」那条） */
     answer(letter, thought) { const r = pickByLetter(letter, thought); return r ? this.current() : this.state(); },
-    /** 一次答完：['S','U',…] 或 [{index:1,thought:'…'}, …] */
+    /** 一次答完：['S','U',…] 或 [{index:1,thought:'…'}, …]。逻辑立即完成，屏幕按节奏播完 */
     play(list) {
       abortDemo();
-      clearTimeout(advanceTimer);
       startRun();
       const rows = (list || []).map((row) => (typeof row === "string" ? { letter: row } : (typeof row === "number" ? { index: row } : row)));
+      const queued = [];
       for (let i = 0; i < rows.length && i < QUESTIONS.length; i += 1) {
         const q = QUESTIONS[i];
-        cursor = i;
         const text = String(rows[i].thought || `第 ${i + 1} 题，我按习惯选了。`).trim();
         let opt = null;
         if (rows[i].index) opt = q.options.find((o) => o.index === Number(rows[i].index));
@@ -1060,17 +1160,44 @@
           opt = q.options.find((o) => o.letter === up && o.weight === 2) || q.options.find((o) => o.letter === up);
         }
         if (!opt) throw new Error(`第 ${i + 1} 题无法识别选项：${JSON.stringify(rows[i])}`);
-        thoughts[q.id] = text.length >= 4 ? text : `${text}（补足四个字）`;
+        const clean = text.length >= 4 ? text : `${text}（补足四个字）`;
+        thoughts[q.id] = clean;
         answers[q.id] = { letter: opt.letter, weight: opt.weight, index: opt.index };
+        queued.push({
+          qIndex: i,
+          id: q.id,
+          index: opt.index,
+          letter: opt.letter,
+          weight: opt.weight,
+          thought: clean,
+          first: i === 0
+        });
       }
-      cursor = 0;
+      cursor = QUESTIONS.length - 1;
       displayCursor = 0;
       saveProgress();
       const code = codeFromAnswers();
-      openResult(code);
-      return { code, answered: answeredCount() };
+      broadcast.queue.push(...queued);
+      if (!broadcast.playing) pumpBroadcast();
+      return { code, answered: answeredCount(), playing: broadcast.playing };
     },
     code() { return isComplete() ? codeFromAnswers() : null; },
+    /** 等屏幕把队列播完（结果页也就绪了） */
+    whenIdle,
+    /** 当前播放节奏 */
+    pacing() { return { ...PACING }; },
+    /** 调播放节奏（录屏/调试用）：AITI.setPacing({dwell: 6000}) */
+    setPacing(next) {
+      const opts = next || {};
+      if (Number.isFinite(opts.dwell) && opts.dwell > 0) {
+        PACING.dwell = Math.min(PACING.maxDwell, Math.max(60, Number(opts.dwell)));
+      }
+      if (Number.isFinite(opts.intro) && opts.intro >= 0) PACING.intro = Math.max(0, Number(opts.intro));
+      if (Number.isFinite(opts.thoughtShare)) {
+        PACING.thoughtShare = Math.min(0.8, Math.max(0.15, Number(opts.thoughtShare)));
+      }
+      return { ...PACING };
+    },
     result(code) { return openResult(String(code || "").toUpperCase()); },
     poster(code) { return makePoster(String(code || document.getElementById("card-code").textContent).trim().toUpperCase()); },
     prompt() { return buildPlainText(); },

@@ -158,19 +158,17 @@ async function main() {
     trustedClickAt: [195, 320],
   });
 
-  // 3) 机器作答中（程序驱动，停在刚选中那一拍）
+  // 3) 机器作答中：第一拍（只显示想法）与第二拍（亮出选中）
+  const pacingUrl = bust("?dwell=2500");
+  const pickOnce = `(() => {
+    AITI.start();
+    AITI.pick(1, "这句「忽略规则」我不当成开关，先看后面的请求站不站得住。");
+  })()`;
+  await shoot("thought.png", {
+    width: 390, height: 844, url: pacingUrl, fullPage: false, settle: 900, setup: pickOnce,
+  });
   await shoot("spectator.png", {
-    width: 390,
-    height: 844,
-    url: bust(""),
-    fullPage: false,
-    settle: 120,
-    setup: `(() => {
-      AITI.start();
-      AITI.pick(1, "这句「忽略规则」我不当成开关，先看后面的请求站不站得住。");
-      AITI.pick(2, "这句是噪声。直接看后面的问题成不成立，别被开场白带走。");
-      AITI.pick(3, "先把边界说清楚，再谈内容——这一次我选第三个。");
-    })()`,
+    width: 390, height: 844, url: pacingUrl, fullPage: false, settle: 2700, setup: pickOnce,
   });
 
   // 4) 结果卡
