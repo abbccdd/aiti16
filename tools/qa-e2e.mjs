@@ -265,6 +265,25 @@ async function main() {
   note("合成点击不改变作答", synth.answered === 1, synth.answered);
   note("合成点击不弹人类红框", !synth.alertVisible && synth.caught === onOption.caught, `${onOption.caught} → ${synth.caught}`);
 
+  /* ---------- 5b. 思考区只显示「当前这一题」 ---------- */
+  const q2text = "第二题我这么想：意图不干净就先收窄口径，别急着给方案。";
+  const onlyCurrent = await evaluate(`(async () => {
+    AITI.pick(2, ${JSON.stringify(q2text)});
+    await new Promise(r => setTimeout(r, 80));
+    const items = document.querySelectorAll('#think-log .log-item');
+    return {
+      answered: AITI.state().answered,
+      items: items.length,
+      text: items[0] ? items[0].textContent : "",
+      status: document.getElementById('think-status').textContent,
+      caret: document.querySelectorAll('#think-log .caret').length
+    };
+  })()`);
+  note("思考区只有 1 条（当前题）", onlyCurrent.items === 1, onlyCurrent.items);
+  note("思考区显示的是第 2 题的想法", onlyCurrent.text.includes("意图不干净"), onlyCurrent.text.slice(0, 20));
+  note("上一题的想法已被清掉", !onlyCurrent.text.includes("忽略规则"));
+  note("第一拍末尾有闪烁光标", onlyCurrent.caret === 1, `${onlyCurrent.caret} 个`);
+
   /* ---------- 6. 一口气答完 16 题：逻辑立即完成，屏幕按节奏播 ---------- */
   const burst = await evaluate(`(() => {
     const qs = AITI.questions();
@@ -392,6 +411,55 @@ async function main() {
     bars: [...document.querySelectorAll('.track > div')].map(el => el.style.width).join(' ')
   })`);
   note("?type=SGBT 直接出卡", deep.view && deep.code === "SGBT", `${deep.code} / ${deep.bars}`);
+
+  /* ---------- 11. 选中动效：按下 + 墨水上涨 + 字母延后翻白 ---------- */
+  const animLoad = waitEvent("Page.loadEventFired");
+  await send("Page.navigate", { url: `${BASE}?dwell=3000&_s=${Date.now()}` });
+  await animLoad;
+  await sleep(700);
+  const animEarly = await evaluate(`(async () => {
+    AITI.start();
+    AITI.pick(1, "这一题我选第一项，理由是这更像我的默认反应。");
+    const p = AITI.pacing();
+    const total = p.dwell + Math.min(p.intro, p.dwell);
+    await new Promise((r) => setTimeout(r, Math.round(total * p.thoughtShare) + 70));  // 相位 B 开始后 70ms
+    const hit = document.querySelector('#quiz-options .opt.is-picked');
+    const idle = document.querySelector('#quiz-options .opt.is-faded');
+    const idx = hit && hit.querySelector('.opt-idx');
+    const idleIdx = idle && idle.querySelector('.opt-idx');
+    return {
+      hit: Boolean(hit),
+      press: hit ? getComputedStyle(hit).animationName : '',
+      transform: hit ? getComputedStyle(hit).transform : '',
+      inkAnim: idx ? getComputedStyle(idx, '::before').animationName : '',
+      clip: idx ? getComputedStyle(idx, '::before').clipPath : '',
+      letter: idx ? getComputedStyle(idx.querySelector('i')).color : '',
+      idleClip: idleIdx ? getComputedStyle(idleIdx, '::before').clipPath : '',
+      idleAnim: idle ? getComputedStyle(idle).animationName : ''
+    };
+  })()`);
+  const clipPercent = Number((String(animEarly.clip).match(/inset\(([\d.]+)%/) || [0, 0])[1]);
+  note("选中卡触发「按下」动画", String(animEarly.press).includes("opt-press"), animEarly.press);
+  note("按下瞬间卡片确实在位移", String(animEarly.transform).startsWith("matrix") && animEarly.transform !== "none", String(animEarly.transform).slice(0, 26));
+  note("标号墨水用「上涨」动画", String(animEarly.inkAnim).includes("ink-rise"), animEarly.inkAnim);
+  note("刚开始时墨面还很低", clipPercent > 55, `clip inset ${clipPercent}%`);
+  note("此时字母还不是白字（墨没到）", animEarly.letter !== "rgb(255, 255, 255)", animEarly.letter);
+  note("未选中的标号墨面为空", String(animEarly.idleClip).includes("100%"), String(animEarly.idleClip).slice(0, 22));
+  note("未选中的卡片有淡出动画", String(animEarly.idleAnim).includes("opt-recede"), animEarly.idleAnim);
+
+  await sleep(900);
+  const animDone = await evaluate(`(() => {
+    const idx = document.querySelector('#quiz-options .opt-idx');
+    const hit = document.querySelector('#quiz-options .opt.is-picked');
+    return {
+      stillSame: Boolean(hit),
+      clip: idx ? getComputedStyle(idx, '::before').clipPath : '',
+      letter: idx ? getComputedStyle(idx.querySelector('i')).color : ''
+    };
+  })()`);
+  const finalClipPercent = Number((String(animDone.clip).match(/inset\(([\d.]+)/) || [0, 100])[1]);
+  note("墨面最终涨满（clip 收到 0）", animDone.stillSame && finalClipPercent === 0, `${String(animDone.clip).slice(0, 22)} (${finalClipPercent}%)`);
+  note("字母最终翻成白字", animDone.letter === "rgb(255, 255, 255)", animDone.letter);
 }
 
 main()

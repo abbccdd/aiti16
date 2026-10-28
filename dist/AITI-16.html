@@ -224,18 +224,73 @@
     .opt.is-picked:hover { border-color: var(--ink); background: #fbfbfc; }
     .opt.is-faded:hover { border-color: var(--line); background: #fff; }
     .opt-idx {
+      position: relative;
       flex: 0 0 24px; width: 24px; height: 24px; margin-top: 1px;
       border-radius: 50%;
       display: grid; place-items: center;
-      background: var(--fill); color: var(--muted);
+      background: var(--fill);
       font-size: 12px; font-weight: 700;
+      overflow: hidden;
+      isolation: isolate;
     }
+    /* 字母：墨到齐之后才翻成白字。
+       注意：选项元素每个阶段都会重建，transition 在新建节点上不会跑，所以这里全部用 animation */
+    .opt-idx > i {
+      position: relative;
+      z-index: 2;
+      font-style: normal;
+      color: var(--muted);
+    }
+    /* 墨水：从标号底部涨上来，像液面推动 */
+    .opt-idx::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: var(--ink);
+      z-index: 1;
+      clip-path: inset(100% 0 0 0 round 50%);
+    }
+    .opt {
+      will-change: transform;
+    }
+    /* 选中：整张卡往下沉一下 */
+    .opt.is-picked { animation: opt-press .38s cubic-bezier(.3,.7,.4,1); }
+    @keyframes opt-press {
+      0% { transform: translateY(0) scale(1); }
+      40% { transform: translateY(5px) scale(0.997); }
+      100% { transform: translateY(0) scale(1); }
+    }
+    .opt.is-picked .opt-idx::before {
+      clip-path: inset(0 0 0 0 round 50%);
+      animation: ink-rise .66s cubic-bezier(.34,.06,.28,1) both;
+    }
+    @keyframes ink-rise {
+      from { clip-path: inset(100% 0 0 0 round 50%); }
+      to { clip-path: inset(0 0 0 0 round 50%); }
+    }
+    .opt.is-picked .opt-idx > i { animation: letter-ink .2s ease .26s both; }
+    @keyframes letter-ink {
+      from { color: var(--muted); }
+      to { color: #fff; }
+    }
+    .opt.is-picked .opt-idx { animation: ink-ring .6s ease-out; }
+    /* 没被选中的：当着人面退下去 */
+    .opt.is-faded { animation: opt-recede .32s ease both; }
+    @keyframes opt-recede {
+      from { opacity: 1; }
+      to { opacity: .42; }
+    }
+    @keyframes ink-ring {
+      0% { box-shadow: 0 0 0 0 rgba(17,17,19,0.30); }
+      100% { box-shadow: 0 0 0 9px rgba(17,17,19,0); }
+    }
+    .opt-check { flex: 0 0 14px; color: var(--ok); font-weight: 700; opacity: 0; transition: opacity .2s ease .12s; }
     .opt-text { flex: 1; }
-    .opt-mark { flex: 0 0 auto; align-self: center; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: var(--faint); }
+    .opt-mark { flex: 0 0 auto; align-self: center; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: var(--faint); transition: color .2s ease; }
     .opt.is-picked { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); background: #fbfbfc; }
-    .opt.is-picked .opt-idx { background: var(--ink); color: #fff; }
     .opt.is-picked .opt-mark { color: var(--ok); }
-    .opt.is-faded { opacity: .45; }
+    .opt.is-faded { opacity: .42; }
     .ro-note {
       margin: 18px 0 0;
       padding-top: 12px;
@@ -253,13 +308,33 @@
       margin-bottom: 8px;
     }
     .stream-head .meta { font-family: var(--mono); font-weight: 400; color: var(--muted); }
-    .think-log { max-height: 148px; overflow-y: auto; overscroll-behavior: contain; }
+    .think-log { min-height: 46px; }
     .log-empty { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 0; }
-    .log-item { margin-bottom: 10px; }
-    .log-meta { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-bottom: 2px; }
-    .log-meta b { color: var(--ink-2); font-weight: 600; }
-    .log-meta em { font-style: normal; color: var(--ok); }
-    .log-text { font-size: 12.5px; line-height: 1.62; color: var(--ink-2); }
+    .log-item { margin: 0; }
+    .log-text {
+      font-size: 14px;
+      line-height: 1.72;
+      color: var(--ink);
+      animation: ink-in .34s ease-out both;
+    }
+    /* 想法像墨水渗出来 */
+    @keyframes ink-in {
+      from { opacity: 0; transform: translateY(3px); filter: blur(2px); }
+      to { opacity: 1; transform: translateY(0); filter: blur(0); }
+    }
+    /* 还在想的时候，末尾停一个方块光标 */
+    .caret {
+      display: inline-block;
+      width: .5em;
+      height: 1em;
+      margin-left: 2px;
+      vertical-align: -0.14em;
+      background: var(--ink);
+      animation: caret-blink 1s steps(2, start) infinite;
+    }
+    @keyframes caret-blink { 50% { opacity: 0; } }
+    /* 选中那一拍的余韵：底部一道墨线扫过 */
+    .stream.stream-hit .stream-head span:first-child { color: var(--ok); }
     /* ---------- 结果卡 ---------- */
     .card { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #fff; }
     .result-body { padding: 16px; }
@@ -473,7 +548,7 @@ GET /quiz.md     /quiz.json     /?machine=1
       <div id="quiz-options" class="opts"></div>
       <p class="ro-note" id="ro-note">只读屏 · 每题停留几秒给你读完 · 点击会被判定为人类</p>
       <div class="stream">
-        <div class="stream-head"><span>机器思考流</span><span class="meta" id="think-count">0 / 16</span></div>
+        <div class="stream-head"><span>这一题它在想</span><span class="meta" id="think-status">等待接入</span></div>
         <div id="think-log" class="think-log"></div>
       </div>
     </section>
@@ -1148,27 +1223,26 @@ X 依次是 S/U、G/D、F/B、A/T 里你倾向前那一极的字母。
     }
   }
 
+  /** 思考区只显示「当前这一题」它在想什么 */
   function renderStream() {
     const host = document.getElementById("think-log");
     if (!host) return;
-    // 处于「只显示想法」阶段时，当前这道题先不亮出选择
-    const pendingQid = broadcast.item && broadcast.item.mode === "thought" ? broadcast.item.id : null;
-    const rows = [];
-    QUESTIONS.forEach((q, index) => {
-      const line = thoughts[q.id];
-      const a = answers[q.id];
-      if (!line && !a) return;
-      const revealed = a && q.id !== pendingQid;
-      const picked = revealed ? `<em>选了 ${LETTERS[a.index - 1]}</em>` : "";
-      rows.push(`<div class="log-item">
-        <div class="log-meta"><b>${String(index + 1).padStart(2, "0")}</b> · ${escapeHtml(axisByDim(q.dim).label)} ${picked}</div>
-        <div class="log-text">${escapeHtml(line || "（没留想法）")}</div>
-      </div>`);
-    });
-    host.innerHTML = rows.length ? rows.join("") : `<p class="log-empty">还没有机器接入。它一开口，这里就会开始滚。</p>`;
-    host.scrollTop = host.scrollHeight;
-    const label = document.getElementById("think-count");
-    if (label) label.textContent = `${countThoughts()} / ${QUESTIONS.length}`;
+    const q = QUESTIONS[displayCursor];
+    const line = q ? (thoughts[q.id] || "") : "";
+    const a = q ? answers[q.id] : null;
+    const revealed = Boolean(broadcast.item && broadcast.item.mode === "picked") && Boolean(a);
+    const status = document.getElementById("think-status");
+    if (status) {
+      status.textContent = !line ? (broadcast.playing ? "正在读…" : "等待接入") : revealed ? `选了 ${LETTERS[a.index - 1]}` : "正在读…";
+    }
+    if (!line) {
+      host.innerHTML = `<p class="log-empty">${broadcast.playing ? "它还在想这一题…" : "还没有机器接入。它一开口，这里就只显示这一题的思考。"}</p>`;
+      return;
+    }
+    const caret = revealed ? "" : `<span class="caret" aria-hidden="true"></span>`;
+    host.innerHTML = `<div class="log-item is-now"><div class="log-text">${escapeHtml(line)}${caret}</div></div>`;
+    const stream = host.closest(".stream");
+    if (stream) stream.classList.toggle("stream-hit", revealed);
   }
 
   function renderSpectator() {
@@ -1194,7 +1268,7 @@ X 依次是 S/U、G/D、F/B、A/T 里你倾向前那一极的字母。
       const faded = pickedIndex && !picked;
       const mark = picked ? "✓ 机器选中" : "机器未选";
       return `<div class="opt${picked ? " is-picked" : ""}${faded ? " is-faded" : ""}" data-index="${opt.index}" aria-disabled="true" role="option" aria-selected="${picked}">
-        <span class="opt-idx">${LETTERS[i]}</span>
+        <span class="opt-idx"><i>${LETTERS[i]}</i></span>
         <span class="opt-text">${escapeHtml(opt.text)}</span>
         <span class="opt-mark">${mark}</span>
       </div>`;

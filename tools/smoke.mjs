@@ -122,6 +122,7 @@ function makeNode(id) {
     getAttribute(k) { return this.attrs[k]; },
     appendChild(c) { this.children.push(c); return c; },
     remove() {}, focus() {}, blur() {}, select() {}, scrollIntoView() {}, click() {},
+    closest() { return null; },
   };
 }
 

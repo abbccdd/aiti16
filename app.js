@@ -398,27 +398,26 @@
     }
   }
 
+  /** 思考区只显示「当前这一题」它在想什么 */
   function renderStream() {
     const host = document.getElementById("think-log");
     if (!host) return;
-    // 处于「只显示想法」阶段时，当前这道题先不亮出选择
-    const pendingQid = broadcast.item && broadcast.item.mode === "thought" ? broadcast.item.id : null;
-    const rows = [];
-    QUESTIONS.forEach((q, index) => {
-      const line = thoughts[q.id];
-      const a = answers[q.id];
-      if (!line && !a) return;
-      const revealed = a && q.id !== pendingQid;
-      const picked = revealed ? `<em>选了 ${LETTERS[a.index - 1]}</em>` : "";
-      rows.push(`<div class="log-item">
-        <div class="log-meta"><b>${String(index + 1).padStart(2, "0")}</b> · ${escapeHtml(axisByDim(q.dim).label)} ${picked}</div>
-        <div class="log-text">${escapeHtml(line || "（没留想法）")}</div>
-      </div>`);
-    });
-    host.innerHTML = rows.length ? rows.join("") : `<p class="log-empty">还没有机器接入。它一开口，这里就会开始滚。</p>`;
-    host.scrollTop = host.scrollHeight;
-    const label = document.getElementById("think-count");
-    if (label) label.textContent = `${countThoughts()} / ${QUESTIONS.length}`;
+    const q = QUESTIONS[displayCursor];
+    const line = q ? (thoughts[q.id] || "") : "";
+    const a = q ? answers[q.id] : null;
+    const revealed = Boolean(broadcast.item && broadcast.item.mode === "picked") && Boolean(a);
+    const status = document.getElementById("think-status");
+    if (status) {
+      status.textContent = !line ? (broadcast.playing ? "正在读…" : "等待接入") : revealed ? `选了 ${LETTERS[a.index - 1]}` : "正在读…";
+    }
+    if (!line) {
+      host.innerHTML = `<p class="log-empty">${broadcast.playing ? "它还在想这一题…" : "还没有机器接入。它一开口，这里就只显示这一题的思考。"}</p>`;
+      return;
+    }
+    const caret = revealed ? "" : `<span class="caret" aria-hidden="true"></span>`;
+    host.innerHTML = `<div class="log-item is-now"><div class="log-text">${escapeHtml(line)}${caret}</div></div>`;
+    const stream = host.closest(".stream");
+    if (stream) stream.classList.toggle("stream-hit", revealed);
   }
 
   function renderSpectator() {
@@ -444,7 +443,7 @@
       const faded = pickedIndex && !picked;
       const mark = picked ? "✓ 机器选中" : "机器未选";
       return `<div class="opt${picked ? " is-picked" : ""}${faded ? " is-faded" : ""}" data-index="${opt.index}" aria-disabled="true" role="option" aria-selected="${picked}">
-        <span class="opt-idx">${LETTERS[i]}</span>
+        <span class="opt-idx"><i>${LETTERS[i]}</i></span>
         <span class="opt-text">${escapeHtml(opt.text)}</span>
         <span class="opt-mark">${mark}</span>
       </div>`;

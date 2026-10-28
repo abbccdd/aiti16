@@ -170,6 +170,10 @@ async function main() {
   await shoot("spectator.png", {
     width: 390, height: 844, url: pacingUrl, fullPage: false, settle: 2700, setup: pickOnce,
   });
+  // 按下那一刻：卡片仍在回弹、墨水正从标号底部渗上来
+  await shoot("pressing.png", {
+    width: 390, height: 844, url: pacingUrl, fullPage: false, settle: 1935, setup: pickOnce,
+  });
 
   // 4) 结果卡
   await shoot("result.png", { width: 390, height: 844, url: bust("?type=SGBT") });
