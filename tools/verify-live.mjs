@@ -76,6 +76,9 @@ async function main() {
   const thumb = await grab("/assets/thumb/UDBT.jpg");
   note("缩略图 200", thumb.res.status === 200, `${thumb.res.status} ${(thumb.buf.length / 1024).toFixed(0)} KB`);
 
+  const qr = await grab("/assets/qr.png");
+  note("长图二维码 200", qr.res.status === 200 && qr.buf.readUInt32BE(0) === 0x89504e47, `${qr.res.status} ${qr.buf.length} B`);
+
   const single = await grab("/dist/AITI-16.html");
   note("单文件版 200", single.res.status === 200, `${(single.buf.length / 1024 / 1024).toFixed(2)} MB`);
   note("单文件版内联了图片", single.text.includes("data:image/jpeg;base64,"));

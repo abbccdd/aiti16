@@ -207,7 +207,20 @@ console.log(`index.html 静态题面已刷新（${escaped.length} 字符）`);
 execFileSync("python", [path.join(ROOT, "tools", "img.py"), "thumbs"], { stdio: "inherit" });
 execFileSync("python", [path.join(ROOT, "tools", "img.py"), "bundle"], { stdio: "inherit" });
 
+// 二维码只在缺失时联网生成一次（产物进仓库，页面运行时零外部请求）
+const qrPath = path.join(ROOT, "assets", "qr.png");
+if (!fs.existsSync(qrPath)) {
+  try {
+    execFileSync(process.execPath, [path.join(ROOT, "tools", "qr.mjs")], { stdio: "inherit" });
+  } catch (err) {
+    console.warn("二维码没生成，长图会省略它。想补上：node tools/qr.mjs");
+  }
+}
+
 const b64 = JSON.parse(fs.readFileSync(path.join(ROOT, "dist", "assets-b64.json"), "utf8"));
+if (fs.existsSync(qrPath)) {
+  b64.__qr = "data:image/png;base64," + fs.readFileSync(qrPath).toString("base64");
+}
 const appjs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
 
 let single = html

@@ -32,6 +32,7 @@ og.png                    社交分享封面 1200×630（构建产物）
 tools/build.mjs           构建脚本
 tools/img.py              图片预处理（Pillow：缩略图、内联包、图标）
 tools/og.py               生成 og.png 分享封面
+tools/qr.mjs              生成 assets/qr.png（长图右下角二维码，构建时联网一次）
 tools/smoke.mjs           无浏览器冒烟测试
 tools/verify-live.mjs     线上端点验收
 dist/AITI-16.html         单文件离线版（构建产物）

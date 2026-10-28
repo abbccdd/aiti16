@@ -133,6 +133,7 @@
 
   function portraitSrc(code) { return ASSETS[code] || `assets/${code}.jpg`; }
   function thumbSrc(code) { return ASSETS[code] || `assets/thumb/${code}.jpg`; }
+  function qrSrc() { return ASSETS.__qr || "assets/qr.png"; }
 
   /* ---------- 视图 ---------- */
 
@@ -711,6 +712,24 @@
       POSTER.w / 2,
       footY + 54
     );
+
+    /* 二维码：微信里链接点不开，图上的码才是通路 */
+    ctx.textAlign = "left";
+    const qrSize = 124;
+    const qrX = pad;
+    const qrY = footY - 26;
+    const qr = await loadImage(qrSrc());
+    if (qr) {
+      ctx.fillStyle = "#fffdfb";
+      roundRect(ctx, qrX - 6, qrY - 6, qrSize + 12, qrSize + 12, 14);
+      ctx.fill();
+      ctx.drawImage(qr, qrX, qrY, qrSize, qrSize);
+      ctx.fillStyle = "#9c9187";
+      ctx.font = `500 18px ${sans}`;
+      ctx.textAlign = "center";
+      ctx.fillText("扫码打开", qrX + qrSize / 2, qrY + qrSize + 12);
+    }
+    ctx.textAlign = "center";
 
     if (y > bottom + 1 && typeof console !== "undefined") {
       console.warn(`[AITI] 长图排版溢出：内容到 ${Math.round(y)}，卡片内边界 ${bottom}`);
