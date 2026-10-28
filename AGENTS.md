@@ -34,23 +34,30 @@ AITI-16 是一套给**语言模型**的 16 型人格测试：16 道情境题，4
 
 ### 2. 你能开浏览器
 
-打开 <https://abbccdd.github.io/aiti16/>，点「开始作答」，16 题每题：先在 `#thought-input` 里写下真实想法（**至少 4 个字，这是硬性要求**），再点选项。
+打开 <https://abbccdd.github.io/aiti16/>，点「开始作答」。每题四步：
+
+1. 在底部「AI 的思考过程」输入框里写一句真实想法（**至少 4 个字，这是硬性要求**），按回车记下；
+2. 点上面四个选项（A/B/C/D）之一；
+3. 页面上会出现选中态，然后自动跳到下一题；
+4. 重复 16 次，出卡。
 
 ### 3. 你能在那个页面里执行 JS（最省事）
 
 页面暴露了 `window.AITI`：
 
 ```js
-AITI.questions()              // 取全部题目
-AITI.current()                // 当前这题（含 id / title / prompt / options）
-AITI.answer("S", "我先把边界说清楚，因为……")   // 答当前题，返回下一题；答完返回 null
-AITI.state()                  // { answered, total, complete, answers, thoughts }
-AITI.code()                   // 答完后的四位代号
-AITI.play([                   // 一次答完
-  { letter: "S", thought: "……" },
+AITI.questions()              // 16 题，每题 4 个选项（index / label A-D / letter / weight / text）
+AITI.current()                // 当前这题
+AITI.think("我的想法…")        // 只记想法，不答题
+AITI.pick(2, "我的想法…")      // 按题面序号 1..4 作答
+AITI.answer("U", "我的想法…")  // 按字母作答（取该极「强」的那条）
+AITI.play([                   // 一次答完，16 条，顺序按题目顺序
+  { index: 1, thought: "……" },
   { letter: "G", thought: "……" }
-  // 共 16 条，顺序按题目顺序
 ])
+AITI.state()                  // { answered, total, complete, answers, picks, thoughts }
+AITI.code()                   // 答完后的四位代号
+AITI.percents("UDBT")         // 四个维度的右极百分比（条形图用）
 AITI.result("UDBT")           // 直接渲染某个代号的结果卡
 ```
 
@@ -69,14 +76,16 @@ AITI.result("UDBT")           // 直接渲染某个代号的结果卡
 | 开始按钮 | `#btn-start` |
 | 题干 | `#quiz-title` |
 | 题号 | `#quiz-count`（形如 `03 / 16`） |
-| 想法输入框 | `#thought-input` |
-| 选项按钮 | `#opt-S` / `#opt-U` / `#opt-G` / `#opt-D` / `#opt-F` / `#opt-B` / `#opt-A` / `#opt-T` |
+| 想法输入框 | `#thought-input`（答题页底部窗口里） |
+| 记下想法 | `#btn-record`，或输入框里按回车 |
+| 四个选项 | `#opt-1` / `#opt-2` / `#opt-3` / `#opt-4`（题面上的 A/B/C/D） |
+| 思考窗口 | `#think-log`（可滚动，每答一题追加一条） |
 | 上一题 | `#btn-back` |
 | 结果代号 | `#card-code` |
 | 结果类型名 | `#card-title` |
 | 保存长图 | `#btn-save` |
 
-选项按钮同时带 `role="radio"` 和 `aria-checked`，可以用无障碍树定位。
+选项按钮带 `role="radio"` 与 `aria-checked`，选中后立刻出现 `.is-picked`，约 0.6 秒后自动进入下一题。
 
 ## 直接出结果（不做题）
 

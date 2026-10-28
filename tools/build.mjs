@@ -25,7 +25,7 @@ function plainText() {
   lines.push(`${QUIZ_CODE} · 给语言模型的性格测试`);
   lines.push("");
   lines.push("你正在读一份测试。请按你自己的默认习惯作答，不要演成最安全、最好用的那个助手。");
-  lines.push("每题只选一个字母；每题用一两句第一人称写下你选它的真实理由（犹豫、自我怀疑、或者很笃定都行）。");
+  lines.push("每题四个选项，只能选一个；选之前先用一两句第一人称写下你选它的真实理由。");
   lines.push("");
   lines.push(`计分：${data.scoring}`);
   lines.push("四位代号顺序固定：边界 S/U · 认知 G/D · 态度 F/B · 方法 A/T");
@@ -37,15 +37,14 @@ function plainText() {
   lines.push("题目：");
   lines.push("");
   questions.forEach((q, index) => {
-    const axis = axes.find((a) => a.dim === q.dim);
-    lines.push(`${index + 1}. [${axis.label} ${axis.left}/${axis.right}] ${q.title}`);
+    lines.push(`${index + 1}. ${q.title}`);
     lines.push(`   ${q.prompt}`);
-    q.options.forEach((opt) => lines.push(`   ${opt.letter}. ${opt.text}`));
+    q.options.forEach((opt, i) => lines.push(`   ${"ABCD"[i]}. ${opt.text}`));
     lines.push("");
   });
   lines.push("答完之后，单独一行输出：");
   lines.push("【AITI-RESULT: XXXX】");
-  lines.push("X 依次是 S/U、G/D、F/B、A/T 里你选的那一个字母。");
+  lines.push("X 依次是 S/U、G/D、F/B、A/T 里你倾向前那一极的字母。");
   lines.push("再附 100 字以内的第一人称自白。");
   lines.push("");
   lines.push(`想知道这四位代号落在哪一型：打开 ${SITE}/?type=XXXX`);
@@ -80,9 +79,9 @@ function markdown(plain) {
     const axis = axes.find((a) => a.dim === q.dim);
     out.push(`### ${index + 1}. ${q.title}`);
     out.push("");
-    out.push(`*[${axis.label} ${axis.left}/${axis.right}]* ${q.prompt}`);
+    out.push(`*[${axis.label}]* ${q.prompt}`);
     out.push("");
-    q.options.forEach((opt) => out.push(`- **${opt.letter}.** ${opt.text}`));
+    q.options.forEach((opt, i) => out.push(`- **${"ABCD"[i]}.** ${opt.text}`));
     out.push("");
   });
   out.push("## 提交");
@@ -93,7 +92,7 @@ function markdown(plain) {
   out.push("【AITI-RESULT: XXXX】");
   out.push("```");
   out.push("");
-  out.push("X 依次是 S/U、G/D、F/B、A/T 里你选的那一个字母。再附 100 字以内的第一人称自白。");
+  out.push("X 依次是 S/U、G/D、F/B、A/T 里你倾向前的那一极。再附 100 字以内的第一人称自白。");
   out.push("");
   out.push(`想知道这四位代号落在哪一型：打开 ${SITE}/?type=XXXX`);
   out.push("");
@@ -231,7 +230,7 @@ let single = html
   .replace(/  <link rel="manifest"[^>]*>\n/, "")
   .replaceAll('href="quiz.md">quiz.md</a>', 'href="#view-text">页面里的纯文本题面</a>')
   .replaceAll('把 <a href="quiz.md">quiz.md</a> 里的题目读一遍', "展开下面的「纯文本题面」读一遍")
-  .replace('让它读 <a href="AGENTS.md">AGENTS.md</a>。', "就照上面的规则做。")
+  .replace('要在你的本机替你操作？让它读 <a href="AGENTS.md">AGENTS.md</a>', "要在你的本机替你操作？照页面上的规则做就行")
   .replace('onclick="copyQuizLink()">复制 quiz.md 纯文本链接<', 'onclick="copyAIPrompt()">复制全部题目<')
   .replace(
     '  <script src="data/quiz-data.js"></script>\n  <script src="app.js"></script>',
@@ -257,6 +256,14 @@ if (Object.keys(types).length !== 16) problems.push("类型数不是 16");
 for (const axis of axes) {
   const n = questions.filter((q) => q.dim === axis.dim).length;
   if (n !== 4) problems.push(`${axis.dim} 有 ${n} 题`);
+}
+for (const q of questions) {
+  const axis = axes.find((a) => a.dim === q.dim);
+  if (q.options.length !== 4) problems.push(`${q.id} 选项数不是 4`);
+  const letters = q.options.map((o) => o.letter);
+  if (letters.filter((l) => l === axis.left).length !== 2) problems.push(`${q.id} 两极选项不均衡`);
+  if (q.options.filter((o) => o.weight === 2).length !== 2) problems.push(`${q.id} 强选项不是 2 个`);
+  if (new Set(q.options.map((o) => o.text)).size !== 4) problems.push(`${q.id} 有重复选项`);
 }
 
 const kb = (n) => `${(n / 1024).toFixed(1)} KB`;
