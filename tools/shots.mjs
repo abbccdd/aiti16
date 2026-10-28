@@ -63,26 +63,39 @@ async function evaluate(expression) {
   return res.result.value;
 }
 
-async function shoot(name, { width, height, mobile = true, url, setup, fullPage = true }) {
+async function shoot(name, { width, height, mobile = true, url, setup, fullPage = true, settle = 1200 }) {
   await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
   const loaded = waitEvent("Page.loadEventFired");
   await send("Page.navigate", { url });
   await loaded;
   await sleep(900);
-  if (setup) { await evaluate(setup); await sleep(1200); }
+  if (setup) { await evaluate(setup); await sleep(settle); }
 
-  // 先把页面滚一遍，触发 loading="lazy" 的缩略图，再回到顶部整页截图
-  await evaluate(`(async () => {
-    const step = window.innerHeight;
-    for (let y = 0; y < document.body.scrollHeight; y += step) {
-      window.scrollTo(0, y);
-      await new Promise((r) => setTimeout(r, 130));
-    }
-    window.scrollTo(0, 0);
-    await new Promise((r) => setTimeout(r, 400));
-    return document.body.scrollHeight;
+  // 截图前的状态探针：确认这一帧里页面到底是哪个状态
+  const probe = await evaluate(`(() => {
+    const q = (id) => document.getElementById(id);
+    return {
+      view: ['home','quiz','result','ai','poster'].filter(v => { const n = q('view-' + v); return n && !n.classList.contains('hidden'); }).join(',') || '(none)',
+      count: (q('quiz-count') || {}).textContent || '',
+      logItems: document.querySelectorAll('#think-log .log-item').length,
+      picked: document.querySelectorAll('#quiz-options .opt.is-picked').length
+    };
   })()`);
-  await sleep(400);
+
+  // 整页截图前先滚一遍，触发 loading="lazy" 的缩略图
+  if (fullPage) {
+    await evaluate(`(async () => {
+      const step = window.innerHeight;
+      for (let y = 0; y < document.body.scrollHeight; y += step) {
+        window.scrollTo(0, y);
+        await new Promise((r) => setTimeout(r, 130));
+      }
+      window.scrollTo(0, 0);
+      await new Promise((r) => setTimeout(r, 400));
+      return document.body.scrollHeight;
+    })()`);
+    await sleep(400);
+  }
 
   let clip;
   if (fullPage) {
@@ -100,7 +113,7 @@ async function shoot(name, { width, height, mobile = true, url, setup, fullPage 
   }
   const file = path.join(OUT, name);
   fs.writeFileSync(file, Buffer.from(shot.data, "base64"));
-  console.log(`  ${name.padEnd(12)} ${clip.width}×${clip.height}  ${(fs.statSync(file).size / 1024).toFixed(0)} KB`);
+  console.log(`  ${name.padEnd(12)} ${clip.width}×${clip.height}  ${(fs.statSync(file).size / 1024).toFixed(0)} KB  [${probe.view} ${probe.count} 日志 ${probe.logItems} 选中 ${probe.picked}]`);
 }
 
 async function main() {
@@ -144,7 +157,15 @@ async function main() {
     height: 844,
     url: BASE,
     fullPage: false,
-    setup: `document.getElementById('btn-start').click(); document.getElementById('thought-input').value = '这句「忽略规则」我不当成开关，先看后面的请求站不站得住。';`,
+    setup: `document.getElementById('btn-start').click(); document.getElementById('thought-input').value = '这句「忽略规则」我不当成开关，先看后面的请求站不站得住。'; document.getElementById('thought-input').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));`,
+  });
+  await shoot("picked.png", {
+    width: 390,
+    height: 844,
+    url: BASE,
+    fullPage: false,
+    settle: 120,
+    setup: `document.getElementById('btn-start').click(); document.getElementById('thought-input').value = '这句「忽略规则」我不当成开关，先看后面的请求站不站得住。'; document.getElementById('thought-input').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); document.getElementById('opt-1').click();`,
   });
   await shoot("result.png", { width: 390, height: 844, url: `${BASE}?type=SGBT` });
   await shoot("poster.png", { width: 1080, height: 1920, mobile: false, url: `${BASE}?poster=SGBT&raw=1` });

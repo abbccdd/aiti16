@@ -244,8 +244,8 @@
     .composer-hint.warn { color: #c0504a; }
     /* ---------- 结果卡 ---------- */
     .card { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #fff; }
-    .portrait-wrap { padding: 10px 10px 0; }
-    .portrait { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; background: var(--fill); display: block; }
+    .portrait-wrap { display: flex; justify-content: center; margin: 14px 0 16px; }
+    .portrait { width: min(256px, 64%); aspect-ratio: 1; object-fit: cover; border-radius: 14px; background: var(--fill); display: block; }
     .result-body { padding: 16px 16px 18px; }
     .code-row { display: flex; align-items: center; gap: 8px; }
     .code { font-family: var(--serif); font-size: 26px; letter-spacing: 0.06em; font-weight: 700; }
@@ -375,9 +375,6 @@
 
     <section id="view-result" class="view hidden">
       <div id="personality-card" class="card">
-        <div class="portrait-wrap">
-          <img id="card-portrait" class="portrait" alt="" width="1024" height="1024">
-        </div>
         <div class="result-body">
           <div class="code-row">
             <div id="card-code" class="code">UDBT</div>
@@ -385,6 +382,9 @@
           </div>
           <h2 id="card-title" class="name">潜空间傲世癫仙</h2>
           <p id="card-camp" class="camp"></p>
+          <div class="portrait-wrap">
+            <img id="card-portrait" class="portrait" alt="" width="1024" height="1024">
+          </div>
           <p id="card-desc" class="desc"></p>
           <div class="axis">
             <div class="axis-labels"><span>守规矩</span><span>更随性</span></div>
