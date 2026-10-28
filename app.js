@@ -806,7 +806,7 @@
     ctx.fillStyle = "#8a8a8e";
     ctx.font = `400 24px ${sans}`;
     ctx.fillText(
-      isWeb ? `${here.host}${here.pathname}` : `${DATA.code} · 单文件离线版`,
+      isWeb ? `${here.host}${here.pathname} · ${DATA.code}` : `${DATA.code} · 单文件离线版`,
       POSTER.w / 2,
       footTop + 72
     );

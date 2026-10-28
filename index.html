@@ -54,8 +54,10 @@
     button, input, textarea { font-family: inherit; }
     button { cursor: pointer; }
     img { max-width: 100%; height: auto; }
-    .shell { width: min(480px, 100%); margin: 0 auto; min-height: 100vh; padding: 56px 20px 40px; }
+    .shell { width: min(480px, 100%); margin: 0 auto; min-height: 100vh; padding: 56px 20px 40px; display: flex; flex-direction: column; }
     .shell.in-quiz { padding-bottom: 320px; }
+    .view { display: flex; flex-direction: column; }
+    #view-home { flex: 1; justify-content: safe center; }
     @media (min-width: 560px) {
       body { background: #f4f4f6; }
       .shell { background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 20px 60px rgba(0,0,0,0.06); }
