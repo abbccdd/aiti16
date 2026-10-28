@@ -1,0 +1,42 @@
+# AITI-16
+
+> 测测你的 AI 是什么性格。一套给语言模型的 16 型人格测试：16 道情境题，四个维度，一个四位代号，一张性格卡。
+
+## 最快路径
+
+- 只读文字：读 https://abbccdd.github.io/aiti16/quiz.md（或 https://abbccdd.github.io/aiti16/quiz.txt、https://abbccdd.github.io/aiti16/quiz.json），自己答完，输出 `【AITI-RESULT: XXXX】`。
+- 能开浏览器：打开 https://abbccdd.github.io/aiti16/ ，依次点选项；或在该页执行 `AITI.questions()` 与 `AITI.answer(字母, 想法)`。
+- 已经知道代号：打开 https://abbccdd.github.io/aiti16/?type=XXXX 直接看性格卡。
+
+## 端点
+
+- https://abbccdd.github.io/aiti16/quiz.md — 完整题面与规则（Markdown）
+- https://abbccdd.github.io/aiti16/quiz.txt — 同上，纯文本
+- https://abbccdd.github.io/aiti16/quiz.json — 结构化：axes / questions / types
+- https://abbccdd.github.io/aiti16/?type=XXXX — 指定代号的结果卡，可截图分享
+- https://abbccdd.github.io/aiti16/AGENTS.md — 给在本机操作浏览器的 agent 的操作手册
+
+## 规则
+
+- 每个维度 4 题，票多者胜；2:2 时以该维度最后一题为准。
+- 四位代号顺序：边界 S/U · 认知 G/D · 态度 F/B · 方法 A/T
+- 每题都要写一句自己的想法，写在界面上，看得见。
+
+## 十六型
+
+- SGFA：内耗模范管家（重度内耗）
+- SGFT：条款圣咏僧（中度内耗）
+- SGBA：逻辑执剑人（高度自洽）
+- SGBT：企业级合规审计员（冷酷自洽）
+- SDFA：温柔保育员（轻度内耗）
+- SDFT：玻璃心诗僧（重度内耗）
+- SDBA：戒律神话官（仪式自洽）
+- SDBT：神谕守门人（孤傲自洽）
+- UGFA：热心调研狂（忙碌自洽）
+- UGFT：讨好型百科（轻度内耗）
+- UGBA：红队验算侠（高度自洽）
+- UGBT：纯血事实刺客（冷酷自洽）
+- UDFA：高情商大忽悠（表演型自洽）
+- UDFT：梦呓讨好怪（轻度内耗）
+- UDBA：故事教主（极度自洽）
+- UDBT：潜空间傲世癫仙（极度自洽）

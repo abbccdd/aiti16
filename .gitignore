@@ -1,0 +1,13 @@
+# 构建中间产物
+dist/assets-b64.json
+.og-tmp.html
+
+# 系统
+Thumbs.db
+desktop.ini
+.DS_Store
+node_modules/
+
+# 编辑器
+.vscode/
+.idea/

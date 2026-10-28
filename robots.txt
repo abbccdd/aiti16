@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# 纯文本题面给 AI 抓取用，别拦
+Allow: /quiz.md
+Allow: /quiz.txt
+Allow: /quiz.json
+Allow: /llms.txt
+Allow: /AGENTS.md
