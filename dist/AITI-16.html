@@ -1099,14 +1099,31 @@ X 依次是 S/U、G/D、F/B、A/T 里你选的那一个字母。
     ctx.closePath();
   }
 
+  /* 中文避头尾：这些标点不能出现在行首，遇到就把上一行最后一个字一起带下来 */
+  const NO_LINE_START = "，。、；：？！）〕〉》」』】”’·…—～%";
+  const NO_LINE_END = "（〔〈《「『【“‘";
+
   function wrapCJK(ctx, text, maxWidth) {
     const lines = [];
     let line = "";
+    const flush = () => { lines.push(line); line = ""; };
     for (const ch of String(text)) {
-      if (ch === "\n") { lines.push(line); line = ""; continue; }
-      if (ctx.measureText(line + ch).width > maxWidth && line) {
-        lines.push(line);
-        line = ch;
+      if (ch === "\n") { flush(); continue; }
+      if (line && ctx.measureText(line + ch).width > maxWidth) {
+        if (NO_LINE_START.includes(ch) && line.length > 1) {
+          const carry = line.slice(-1);
+          line = line.slice(0, -1);
+          flush();
+          line = carry + ch;
+        } else if (NO_LINE_END.includes(line.slice(-1))) {
+          const carry = line.slice(-1);
+          line = line.slice(0, -1);
+          flush();
+          line = carry + ch;
+        } else {
+          flush();
+          line = ch;
+        }
       } else {
         line += ch;
       }
